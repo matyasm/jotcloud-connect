@@ -37,9 +37,8 @@ const AppRoutes = () => {
   
   return (
     <Routes>
-      {/* Redirect index to landing page */}
+      {/* Landing page as the root route */}
       <Route path="/" element={<Landing />} />
-      <Route index element={<Navigate to="/" replace />} />
       
       <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
       <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />

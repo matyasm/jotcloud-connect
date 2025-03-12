@@ -69,10 +69,16 @@ const Register = () => {
     
     try {
       await register(name, email, password);
-      navigate("/notes");
       toast.success("Account created successfully!");
-    } catch (error) {
-      toast.error("Registration failed. Please try again.");
+      navigate("/notes");
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      
+      if (error.message.includes("already registered")) {
+        toast.error("This email is already registered");
+      } else {
+        toast.error(error.message || "Registration failed. Please try again.");
+      }
     }
   };
 

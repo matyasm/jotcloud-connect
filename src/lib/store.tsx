@@ -1,6 +1,7 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Note, AuthStatus } from './types';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Mock data for initial development
 const initialNotes: Note[] = [
@@ -35,7 +36,7 @@ interface StoreContextType {
   sharedNotes: Note[];
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   createNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt' | 'owner'>) => void;
   updateNote: (id: string, note: Partial<Note>) => void;
   deleteNote: (id: string) => void;
@@ -46,78 +47,148 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [authStatus, setAuthStatus] = useState<AuthStatus>('unauthenticated');
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<User | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [sharedNotes, setSharedNotes] = useState<Note[]>([]);
 
-  // Check local storage for auth on mount
+  // Check for existing session on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
+    const checkSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error checking session:', error);
+          setAuthStatus('unauthenticated');
+          return;
+        }
+        
+        if (data.session) {
+          const { user: supabaseUser } = data.session;
+          
+          // Get user profile from the profiles table
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', supabaseUser.id)
+            .single();
+          
+          const userData: User = {
+            id: supabaseUser.id,
+            email: supabaseUser.email || '',
+            name: profileData?.name || supabaseUser.email?.split('@')[0] || ''
+          };
+          
+          setUser(userData);
+          setAuthStatus('authenticated');
+          // For demo, we'll still use the mock notes
+          setNotes(initialNotes);
+        } else {
+          setAuthStatus('unauthenticated');
+        }
+      } catch (err) {
+        console.error('Error in session check:', err);
+        setAuthStatus('unauthenticated');
+      }
+    };
     
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      setUser(userData);
-      setAuthStatus('authenticated');
-      // Load notes from localStorage in a real app you'd fetch from API
-      setNotes(initialNotes);
-    } else {
-      setAuthStatus('unauthenticated');
-    }
+    checkSession();
+    
+    // Set up auth state change listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        // Get user profile
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        const userData: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          name: profileData?.name || session.user.email?.split('@')[0] || ''
+        };
+        
+        setUser(userData);
+        setAuthStatus('authenticated');
+        setNotes(initialNotes); // For demo
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setAuthStatus('unauthenticated');
+        setNotes([]);
+        setSharedNotes([]);
+      }
+    });
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
-  // Login handler (mock for now)
+  // Login handler
   const login = async (email: string, password: string) => {
-    // Simulate API call
-    setAuthStatus('loading');
-    
-    // For demo purposes, we'll just set the user with a timeout
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const mockUser: User = {
-      id: 'user1',
-      email,
-      name: email.split('@')[0]
-    };
-    
-    setUser(mockUser);
-    setAuthStatus('authenticated');
-    setNotes(initialNotes);
-    
-    // Save to localStorage
-    localStorage.setItem('user', JSON.stringify(mockUser));
+    try {
+      setAuthStatus('loading');
+      
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) throw error;
+      
+      // Auth state change listener will update the state
+    } catch (error: any) {
+      setAuthStatus('unauthenticated');
+      throw error;
+    }
   };
 
-  // Register handler (mock for now)
+  // Register handler
   const register = async (name: string, email: string, password: string) => {
-    // Simulate API call
-    setAuthStatus('loading');
-    
-    // For demo purposes, we'll just set the user with a timeout
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const mockUser: User = {
-      id: 'user1',
-      email,
-      name
-    };
-    
-    setUser(mockUser);
-    setAuthStatus('authenticated');
-    setNotes(initialNotes);
-    
-    // Save to localStorage
-    localStorage.setItem('user', JSON.stringify(mockUser));
+    try {
+      setAuthStatus('loading');
+      
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name
+          }
+        }
+      });
+      
+      if (error) throw error;
+      
+      // The trigger we set up will create a profile record
+      // Auth state change listener will update the state
+    } catch (error: any) {
+      setAuthStatus('unauthenticated');
+      throw error;
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    setAuthStatus('unauthenticated');
-    setNotes([]);
-    setSharedNotes([]);
-    localStorage.removeItem('user');
+  // Logout handler
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Error signing out:', error);
+        toast.error('Failed to sign out');
+      }
+      
+      // Auth state change listener will handle the state update
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Failed to sign out');
+    }
   };
 
+  // Keep existing note manipulation functions
   const createNote = (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt' | 'owner'>) => {
     const newNote: Note = {
       ...note,

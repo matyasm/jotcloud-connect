@@ -2,7 +2,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
-import { LogOut, Search, Menu, X, User, Settings, KeyRound } from "lucide-react";
+import { LogOut, Search, Menu, X, KeyRound } from "lucide-react";
 import { useState } from "react";
 import SearchBar from "./SearchBar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -33,7 +33,7 @@ const Navbar = () => {
           <div className="flex items-center">
             <Link to="/notes" className="flex items-center">
               <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-blue-700">
-                JotCloud
+                Notifly
               </span>
             </Link>
           </div>

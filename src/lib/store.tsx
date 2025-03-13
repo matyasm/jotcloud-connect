@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Note, AuthStatus } from './types';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,10 +53,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             .eq('id', supabaseUser.id)
             .single();
           
+          // For Google auth, try to use the display name or email
+          const displayName = supabaseUser.user_metadata?.full_name || 
+                             supabaseUser.user_metadata?.name;
+          
           const userData: User = {
             id: supabaseUser.id,
             email: supabaseUser.email || '',
-            name: profileData?.name || supabaseUser.email?.split('@')[0] || ''
+            name: profileData?.name || displayName || supabaseUser.email?.split('@')[0] || ''
           };
           
           setUser(userData);
@@ -74,6 +79,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     // Set up auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change event:', event);
       if (event === 'SIGNED_IN' && session) {
         // Get user profile
         const { data: profileData } = await supabase
@@ -82,10 +88,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .eq('id', session.user.id)
           .single();
         
+        // For Google auth, try to use the display name or email
+        const displayName = session.user.user_metadata?.full_name || 
+                           session.user.user_metadata?.name;
+        
         const userData: User = {
           id: session.user.id,
           email: session.user.email || '',
-          name: profileData?.name || session.user.email?.split('@')[0] || ''
+          name: profileData?.name || displayName || session.user.email?.split('@')[0] || ''
         };
         
         setUser(userData);

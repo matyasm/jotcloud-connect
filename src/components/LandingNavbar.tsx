@@ -17,25 +17,13 @@ const LandingNavbar = () => {
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
               <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-blue-700">
-                JotCloud
+                Notifly
               </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <a 
-              href="#features" 
-              className="text-gray-700 hover:text-blue-600 font-medium text-sm transition duration-150 ease-in-out"
-            >
-              Features
-            </a>
-            <a 
-              href="#pricing" 
-              className="text-gray-700 hover:text-blue-600 font-medium text-sm transition duration-150 ease-in-out"
-            >
-              Pricing
-            </a>
             <a 
               href="#about" 
               className="text-gray-700 hover:text-blue-600 font-medium text-sm transition duration-150 ease-in-out"
@@ -75,20 +63,6 @@ const LandingNavbar = () => {
       {menuOpen && (
         <div className="md:hidden animate-fade-in">
           <div className="px-4 py-3 space-y-3 bg-white border-b border-gray-100">
-            <a
-              href="#features"
-              className="block py-2 text-gray-700 hover:text-blue-600 font-medium"
-              onClick={() => setMenuOpen(false)}
-            >
-              Features
-            </a>
-            <a
-              href="#pricing"
-              className="block py-2 text-gray-700 hover:text-blue-600 font-medium"
-              onClick={() => setMenuOpen(false)}
-            >
-              Pricing
-            </a>
             <a
               href="#about"
               className="block py-2 text-gray-700 hover:text-blue-600 font-medium"

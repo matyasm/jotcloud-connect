@@ -14,6 +14,7 @@ const Login = () => {
   const { login, authStatus } = useStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
 
   const validateForm = () => {
@@ -43,6 +44,7 @@ const Login = () => {
     if (!validateForm()) return;
     
     try {
+      setIsSubmitting(true);
       await login(email, password);
       navigate("/notes");
     } catch (error: any) {
@@ -55,10 +57,10 @@ const Login = () => {
       } else {
         toast.error(error.message || "Login failed. Please try again.");
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
-  const isLoading = authStatus === "loading";
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
@@ -128,9 +130,9 @@ const Login = () => {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading}
+              disabled={isSubmitting}
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <div className="flex items-center">
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

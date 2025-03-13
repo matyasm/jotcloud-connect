@@ -1,33 +1,11 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Note, AuthStatus } from './types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-// Mock data for initial development
-const initialNotes: Note[] = [
-  {
-    id: '1',
-    title: 'Welcome to JotCloud',
-    content: 'Start taking notes with this beautiful, minimalist app.',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    owner: 'user1',
-    shared: false,
-    sharedWith: [],
-    tags: ['welcome']
-  },
-  {
-    id: '2',
-    title: 'Meeting Notes',
-    content: 'Discuss project timeline and deliverables.',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    owner: 'user1',
-    shared: true,
-    sharedWith: ['user2'],
-    tags: ['work', 'meeting']
-  }
-];
+// Mock data for initial development - this will be removed
+const initialNotes: Note[] = [];
 
 interface StoreContextType {
   authStatus: AuthStatus;
@@ -37,10 +15,10 @@ interface StoreContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  createNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt' | 'owner'>) => void;
-  updateNote: (id: string, note: Partial<Note>) => void;
-  deleteNote: (id: string) => void;
-  shareNote: (id: string, emails: string[]) => void;
+  createNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt' | 'owner'>) => Promise<void>;
+  updateNote: (id: string, note: Partial<Note>) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
+  shareNote: (id: string, emails: string[]) => Promise<void>;
   searchNotes: (query: string) => Note[];
 }
 
@@ -82,8 +60,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           
           setUser(userData);
           setAuthStatus('authenticated');
-          // For demo, we'll still use the mock notes
-          setNotes(initialNotes);
+          fetchNotes(supabaseUser.id);
         } else {
           setAuthStatus('unauthenticated');
         }
@@ -113,7 +90,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         
         setUser(userData);
         setAuthStatus('authenticated');
-        setNotes(initialNotes); // For demo
+        fetchNotes(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setAuthStatus('unauthenticated');
@@ -126,6 +103,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       authListener.subscription.unsubscribe();
     };
   }, []);
+
+  // Fetch notes from Supabase
+  const fetchNotes = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('owner', userId)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching notes:', error);
+        toast.error('Failed to load notes');
+        return;
+      }
+
+      if (data) {
+        // Transform the data to match our Note type
+        const formattedNotes: Note[] = data.map(note => ({
+          id: note.id,
+          title: note.title,
+          content: note.content,
+          createdAt: note.created_at,
+          updatedAt: note.updated_at,
+          owner: note.owner,
+          shared: note.shared,
+          sharedWith: note.shared_with || [],
+          tags: note.tags || []
+        }));
+        
+        setNotes(formattedNotes);
+      }
+    } catch (error) {
+      console.error('Error in fetchNotes:', error);
+      toast.error('Failed to load notes');
+    }
+  };
 
   // Login handler
   const login = async (email: string, password: string) => {
@@ -188,48 +202,185 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Keep existing note manipulation functions
-  const createNote = (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt' | 'owner'>) => {
-    const newNote: Note = {
-      ...note,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      owner: user?.id || 'unknown'
-    };
-    
-    setNotes(prev => [newNote, ...prev]);
+  // Create note - now using Supabase
+  const createNote = async (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt' | 'owner'>) => {
+    if (!user) {
+      toast.error('You must be logged in to create notes');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('notes')
+        .insert({
+          title: note.title,
+          content: note.content,
+          owner: user.id,
+          shared: note.shared,
+          shared_with: note.sharedWith,
+          tags: note.tags
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating note:', error);
+        toast.error('Failed to create note');
+        throw error;
+      }
+
+      // Add the new note to the state
+      if (data) {
+        const newNote: Note = {
+          id: data.id,
+          title: data.title,
+          content: data.content,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+          owner: data.owner,
+          shared: data.shared,
+          sharedWith: data.shared_with || [],
+          tags: data.tags || []
+        };
+        
+        setNotes(prev => [newNote, ...prev]);
+      }
+    } catch (error) {
+      console.error('Error in createNote:', error);
+      throw error;
+    }
   };
 
-  const updateNote = (id: string, noteUpdate: Partial<Note>) => {
-    setNotes(prev => 
-      prev.map(note => 
-        note.id === id 
-          ? { ...note, ...noteUpdate, updatedAt: new Date().toISOString() } 
-          : note
-      )
-    );
+  // Update note - now using Supabase
+  const updateNote = async (id: string, noteUpdate: Partial<Note>) => {
+    if (!user) {
+      toast.error('You must be logged in to update notes');
+      return;
+    }
+
+    try {
+      // Prepare the update data
+      const updateData: any = {};
+      if (noteUpdate.title !== undefined) updateData.title = noteUpdate.title;
+      if (noteUpdate.content !== undefined) updateData.content = noteUpdate.content;
+      if (noteUpdate.shared !== undefined) updateData.shared = noteUpdate.shared;
+      if (noteUpdate.sharedWith !== undefined) updateData.shared_with = noteUpdate.sharedWith;
+      if (noteUpdate.tags !== undefined) updateData.tags = noteUpdate.tags;
+
+      const { error } = await supabase
+        .from('notes')
+        .update(updateData)
+        .eq('id', id)
+        .eq('owner', user.id);
+
+      if (error) {
+        console.error('Error updating note:', error);
+        toast.error('Failed to update note');
+        throw error;
+      }
+
+      // Update the note in state
+      setNotes(prev => 
+        prev.map(note => 
+          note.id === id 
+            ? { ...note, ...noteUpdate, updatedAt: new Date().toISOString() } 
+            : note
+        )
+      );
+    } catch (error) {
+      console.error('Error in updateNote:', error);
+      throw error;
+    }
   };
 
-  const deleteNote = (id: string) => {
-    setNotes(prev => prev.filter(note => note.id !== id));
+  // Delete note - now using Supabase
+  const deleteNote = async (id: string) => {
+    if (!user) {
+      toast.error('You must be logged in to delete notes');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .delete()
+        .eq('id', id)
+        .eq('owner', user.id);
+
+      if (error) {
+        console.error('Error deleting note:', error);
+        toast.error('Failed to delete note');
+        throw error;
+      }
+
+      // Remove the note from state
+      setNotes(prev => prev.filter(note => note.id !== id));
+    } catch (error) {
+      console.error('Error in deleteNote:', error);
+      throw error;
+    }
   };
 
-  const shareNote = (id: string, emails: string[]) => {
-    setNotes(prev => 
-      prev.map(note => 
-        note.id === id 
-          ? { 
-              ...note, 
-              shared: true, 
-              sharedWith: [...new Set([...note.sharedWith, ...emails])],
-              updatedAt: new Date().toISOString() 
-            } 
-          : note
-      )
-    );
+  // Share note - now using Supabase
+  const shareNote = async (id: string, emails: string[]) => {
+    if (!user) {
+      toast.error('You must be logged in to share notes');
+      return;
+    }
+
+    try {
+      // First, get the current note to get the existing sharedWith
+      const { data: noteData, error: fetchError } = await supabase
+        .from('notes')
+        .select('shared_with')
+        .eq('id', id)
+        .eq('owner', user.id)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching note:', fetchError);
+        toast.error('Failed to share note');
+        throw fetchError;
+      }
+
+      const currentSharedWith = noteData?.shared_with || [];
+      const updatedSharedWith = [...new Set([...currentSharedWith, ...emails])];
+
+      const { error: updateError } = await supabase
+        .from('notes')
+        .update({ 
+          shared: true,
+          shared_with: updatedSharedWith 
+        })
+        .eq('id', id)
+        .eq('owner', user.id);
+
+      if (updateError) {
+        console.error('Error sharing note:', updateError);
+        toast.error('Failed to share note');
+        throw updateError;
+      }
+
+      // Update the note in state
+      setNotes(prev => 
+        prev.map(note => 
+          note.id === id 
+            ? { 
+                ...note, 
+                shared: true, 
+                sharedWith: updatedSharedWith,
+                updatedAt: new Date().toISOString() 
+              } 
+            : note
+        )
+      );
+    } catch (error) {
+      console.error('Error in shareNote:', error);
+      throw error;
+    }
   };
 
+  // Search notes - local implementation
   const searchNotes = (query: string) => {
     if (!query.trim()) return notes;
     

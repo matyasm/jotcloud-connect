@@ -52,7 +52,7 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) {
       toast.error('Please add a title');
       return;
@@ -62,7 +62,7 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
 
     try {
       if (isNewNote) {
-        createNote({
+        await createNote({
           title: title.trim(),
           content: content.trim(),
           shared: false,
@@ -71,7 +71,7 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
         });
         toast.success('Note created');
       } else if (note) {
-        updateNote(note.id, {
+        await updateNote(note.id, {
           title: title.trim(),
           content: content.trim(),
           tags
@@ -84,6 +84,7 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
         onClose();
       }, 300);
     } catch (error) {
+      console.error('Save error:', error);
       setIsSaving(false);
       toast.error('Failed to save note');
     }

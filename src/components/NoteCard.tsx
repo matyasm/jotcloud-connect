@@ -20,23 +20,35 @@ const NoteCard = ({ note, onClick }: NoteCardProps) => {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (!shareEmail.trim()) return;
     
-    shareNote(note.id, [shareEmail]);
-    toast.success(`Note shared with ${shareEmail}`);
-    setShareEmail('');
-    setIsShareDialogOpen(false);
+    setIsProcessing(true);
+    try {
+      await shareNote(note.id, [shareEmail]);
+      toast.success(`Note shared with ${shareEmail}`);
+      setShareEmail('');
+      setIsShareDialogOpen(false);
+    } catch (error) {
+      console.error('Error sharing note:', error);
+      toast.error('Failed to share note');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     setIsDeleting(true);
-    // Simulate delay for animation
-    setTimeout(() => {
-      deleteNote(note.id);
+    try {
+      await deleteNote(note.id);
       toast.success('Note deleted');
-    }, 200);
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      setIsDeleting(false);
+      toast.error('Failed to delete note');
+    }
   };
 
   if (isDeleting) {
@@ -147,7 +159,9 @@ const NoteCard = ({ note, onClick }: NoteCardProps) => {
             <Button variant="outline" onClick={() => setIsShareDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleShare}>Share</Button>
+            <Button onClick={handleShare} disabled={isProcessing}>
+              {isProcessing ? 'Sharing...' : 'Share'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

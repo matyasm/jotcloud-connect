@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { LogIn, ArrowLeft } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,6 +17,26 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
+  
+  // Check Supabase connectivity on component mount
+  useEffect(() => {
+    const checkSupabaseConnection = async () => {
+      try {
+        const { data, error } = await supabase.from('profiles').select('count');
+        if (error) {
+          console.error("Supabase connection error:", error);
+          toast.error("Database connection error. Please try again later.");
+        } else {
+          console.log("Supabase connection successful");
+        }
+      } catch (err) {
+        console.error("Unexpected error checking database:", err);
+        toast.error("Unable to connect to the database");
+      }
+    };
+    
+    checkSupabaseConnection();
+  }, []);
 
   const validateForm = () => {
     let valid = true;
@@ -43,9 +64,14 @@ const Login = () => {
     
     if (!validateForm()) return;
     
+    console.log("Attempting login with email:", email);
+    
     try {
       setIsSubmitting(true);
+      console.log("Login process started, current auth status:", authStatus);
+      
       await login(email, password);
+      console.log("Login successful, navigating to notes");
       navigate("/notes");
     } catch (error: any) {
       console.error("Login error:", error);
@@ -58,6 +84,7 @@ const Login = () => {
         toast.error(error.message || "Login failed. Please try again.");
       }
     } finally {
+      console.log("Login process completed, resetting submission state");
       setIsSubmitting(false);
     }
   };
@@ -90,6 +117,7 @@ const Login = () => {
             </Link>
             <h2 className="mt-4 text-2xl font-semibold text-gray-900">Welcome back</h2>
             <p className="mt-2 text-gray-600">Sign in to your account</p>
+            <p className="mt-2 text-sm text-blue-600">Current auth status: {authStatus}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

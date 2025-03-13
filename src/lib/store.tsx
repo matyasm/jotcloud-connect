@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Note, AuthStatus } from './types';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +18,7 @@ interface StoreContextType {
   updateNote: (id: string, note: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   shareNote: (id: string, emails: string[]) => Promise<void>;
+  shareNoteWithAll: (id: string, share: boolean) => Promise<void>;
   searchNotes: (query: string) => Note[];
 }
 
@@ -380,6 +380,50 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Share note with all users (public note)
+  const shareNoteWithAll = async (id: string, share: boolean) => {
+    if (!user) {
+      toast.error('You must be logged in to share notes');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .update({ 
+          shared: share,
+          shared_with: share ? ['*'] : [] // Use '*' to indicate shared with everyone
+        })
+        .eq('id', id)
+        .eq('owner', user.id);
+
+      if (error) {
+        console.error('Error updating note visibility:', error);
+        toast.error('Failed to update note visibility');
+        throw error;
+      }
+
+      // Update the note in state
+      setNotes(prev => 
+        prev.map(note => 
+          note.id === id 
+            ? { 
+                ...note, 
+                shared: share, 
+                sharedWith: share ? ['*'] : [],
+                updatedAt: new Date().toISOString() 
+              } 
+            : note
+        )
+      );
+
+      toast.success(share ? 'Note shared with everyone' : 'Note is now private');
+    } catch (error) {
+      console.error('Error in shareNoteWithAll:', error);
+      throw error;
+    }
+  };
+
   // Search notes - local implementation
   const searchNotes = (query: string) => {
     if (!query.trim()) return notes;
@@ -404,6 +448,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateNote,
     deleteNote,
     shareNote,
+    shareNoteWithAll,
     searchNotes
   };
 

@@ -3,12 +3,14 @@ import { Note } from '@/lib/types';
 import { format } from 'date-fns';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/lib/store';
-import { Share2, Trash, Edit, Clock, User } from 'lucide-react';
+import { Share2, Trash, Edit, Clock, User, Globe, Lock } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface NoteCardProps {
   note: Note;
@@ -16,11 +18,12 @@ interface NoteCardProps {
 }
 
 const NoteCard = ({ note, onClick }: NoteCardProps) => {
-  const { deleteNote, shareNote } = useStore();
+  const { deleteNote, shareNote, shareNoteWithAll } = useStore();
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPublic, setIsPublic] = useState(note.sharedWith.includes('*'));
 
   const handleShare = async () => {
     if (!shareEmail.trim()) return;
@@ -34,6 +37,20 @@ const NoteCard = ({ note, onClick }: NoteCardProps) => {
     } catch (error) {
       console.error('Error sharing note:', error);
       toast.error('Failed to share note');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleTogglePublic = async () => {
+    const newPublicState = !isPublic;
+    setIsProcessing(true);
+    try {
+      await shareNoteWithAll(note.id, newPublicState);
+      setIsPublic(newPublicState);
+    } catch (error) {
+      console.error('Error toggling public visibility:', error);
+      toast.error('Failed to update note visibility');
     } finally {
       setIsProcessing(false);
     }
@@ -116,12 +133,24 @@ const NoteCard = ({ note, onClick }: NoteCardProps) => {
           {format(new Date(note.updatedAt), 'MMM d, yyyy')}
         </div>
         
-        {note.shared && (
-          <div className="flex items-center">
-            <User size={12} className="mr-1" />
-            {note.sharedWith.length} {note.sharedWith.length === 1 ? 'person' : 'people'}
-          </div>
-        )}
+        <div className="flex items-center">
+          {isPublic ? (
+            <>
+              <Globe size={12} className="mr-1 text-green-500" />
+              <span className="text-green-500">Public</span>
+            </>
+          ) : note.shared ? (
+            <>
+              <User size={12} className="mr-1" />
+              {note.sharedWith.length} {note.sharedWith.length === 1 ? 'person' : 'people'}
+            </>
+          ) : (
+            <>
+              <Lock size={12} className="mr-1" />
+              <span>Private</span>
+            </>
+          )}
+        </div>
       </div>
       
       {note.tags.length > 0 && (
@@ -142,25 +171,49 @@ const NoteCard = ({ note, onClick }: NoteCardProps) => {
           <DialogHeader>
             <DialogTitle>Share note</DialogTitle>
             <DialogDescription>
-              Enter the email address of the person you want to share this note with.
+              Share this note with specific users or make it public for everyone.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex items-center space-x-2 py-4">
-            <Input
-              placeholder="Email address"
-              type="email"
-              value={shareEmail}
-              onChange={(e) => setShareEmail(e.target.value)}
-            />
+          <div className="py-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col space-y-1">
+                <Label htmlFor="public-toggle" className="font-medium">Make note public</Label>
+                <p className="text-sm text-gray-500">Anyone can view this note</p>
+              </div>
+              <Switch 
+                id="public-toggle" 
+                checked={isPublic}
+                onCheckedChange={handleTogglePublic}
+                disabled={isProcessing}
+              />
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">Or share with specific people</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Email address"
+                type="email"
+                value={shareEmail}
+                onChange={(e) => setShareEmail(e.target.value)}
+              />
+              <Button onClick={handleShare} disabled={isProcessing || !shareEmail.trim()}>
+                Share
+              </Button>
+            </div>
           </div>
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsShareDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleShare} disabled={isProcessing}>
-              {isProcessing ? 'Sharing...' : 'Share'}
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

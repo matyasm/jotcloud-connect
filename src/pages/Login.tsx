@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
@@ -19,6 +18,14 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
   
+  // Redirect if already authenticated
+  useEffect(() => {
+    console.log("Auth status in Login component:", authStatus);
+    if (authStatus === 'authenticated') {
+      navigate('/notes');
+    }
+  }, [authStatus, navigate]);
+
   // Check Supabase connectivity on component mount
   useEffect(() => {
     const checkSupabaseConnection = async () => {
@@ -82,7 +89,7 @@ const Login = () => {
       console.log("Login process started, current auth status:", authStatus);
       
       await login(email, password);
-      // Navigation is now handled by the useEffect
+      // Navigation is handled by the useEffect
     } catch (error: any) {
       console.error("Login error:", error);
       
@@ -117,12 +124,16 @@ const Login = () => {
     }
   };
 
-  // If already authenticated, redirect to notes
-  useEffect(() => {
-    if (authStatus === 'authenticated') {
-      navigate('/notes');
-    }
-  }, [authStatus, navigate]);
+  // If user is not yet authenticated or still loading, show the login form
+  if (authStatus === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-center">
+          <p className="text-gray-600">Checking authentication status...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
@@ -158,7 +169,7 @@ const Login = () => {
             onClick={handleGoogleLogin}
             variant="outline"
             className="w-full mb-6 flex items-center justify-center"
-            disabled={isSubmitting && authStatus !== 'authenticated'}
+            disabled={isSubmitting}
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path
@@ -228,9 +239,9 @@ const Login = () => {
             <Button
               type="submit"
               className="w-full"
-              disabled={isSubmitting && authStatus !== 'authenticated'}
+              disabled={isSubmitting}
             >
-              {isSubmitting && authStatus === 'loading' ? (
+              {isSubmitting ? (
                 <div className="flex items-center">
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

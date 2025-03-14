@@ -21,6 +21,16 @@ const queryClient = new QueryClient();
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { authStatus } = useStore();
   
+  if (authStatus === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-center">
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
   if (authStatus === 'unauthenticated') {
     return <Navigate to="/login" />;
   }
@@ -30,6 +40,17 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => {
   const { authStatus } = useStore();
+  
+  // Show loading state while auth is being checked
+  if (authStatus === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-center">
+          <p className="text-gray-600">Loading application...</p>
+        </div>
+      </div>
+    );
+  }
   
   // Redirect authenticated users away from auth pages
   const AuthRoute = ({ children }: { children: React.ReactNode }) => {

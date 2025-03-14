@@ -39,6 +39,16 @@ const Login = () => {
     checkSupabaseConnection();
   }, []);
 
+  // Reset submission state when auth status changes
+  useEffect(() => {
+    if (authStatus === 'authenticated') {
+      setIsSubmitting(false);
+      navigate('/notes');
+    } else if (authStatus === 'unauthenticated') {
+      setIsSubmitting(false);
+    }
+  }, [authStatus, navigate]);
+
   const validateForm = () => {
     let valid = true;
     const newErrors = { email: "", password: "" };
@@ -72,8 +82,7 @@ const Login = () => {
       console.log("Login process started, current auth status:", authStatus);
       
       await login(email, password);
-      console.log("Login successful, navigating to notes");
-      navigate("/notes");
+      // Navigation is now handled by the useEffect
     } catch (error: any) {
       console.error("Login error:", error);
       
@@ -84,8 +93,6 @@ const Login = () => {
       } else {
         toast.error(error.message || "Login failed. Please try again.");
       }
-    } finally {
-      console.log("Login process completed, resetting submission state");
       setIsSubmitting(false);
     }
   };
@@ -101,6 +108,7 @@ const Login = () => {
       });
       
       if (error) throw error;
+      // No need to navigate - this will be handled by the auth redirect
       
     } catch (error: any) {
       console.error("Google login error:", error);
@@ -108,6 +116,13 @@ const Login = () => {
       setIsSubmitting(false);
     }
   };
+
+  // If already authenticated, redirect to notes
+  useEffect(() => {
+    if (authStatus === 'authenticated') {
+      navigate('/notes');
+    }
+  }, [authStatus, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
@@ -143,7 +158,7 @@ const Login = () => {
             onClick={handleGoogleLogin}
             variant="outline"
             className="w-full mb-6 flex items-center justify-center"
-            disabled={isSubmitting}
+            disabled={isSubmitting && authStatus !== 'authenticated'}
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path
@@ -213,9 +228,9 @@ const Login = () => {
             <Button
               type="submit"
               className="w-full"
-              disabled={isSubmitting}
+              disabled={isSubmitting && authStatus !== 'authenticated'}
             >
-              {isSubmitting ? (
+              {isSubmitting && authStatus === 'loading' ? (
                 <div className="flex items-center">
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

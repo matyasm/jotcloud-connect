@@ -7,6 +7,7 @@ import { useState } from "react";
 import SearchBar from "./SearchBar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PasswordChangeForm from "./PasswordChangeForm";
+import { ThemeToggle } from "./ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,13 +27,13 @@ const Navbar = () => {
   const toggleSearch = () => setSearchOpen(!searchOpen);
 
   return (
-    <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-100 z-40">
+    <header className="sticky top-0 bg-background/80 backdrop-blur-md border-b border-border z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex justify-between items-center py-4 md:py-6 relative">
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/notes" className="flex items-center">
-              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-blue-700">
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-blue-700 dark:from-blue-400 dark:to-blue-600">
                 Notifly
               </span>
             </Link>
@@ -42,13 +43,13 @@ const Navbar = () => {
           <nav className="hidden md:flex items-center space-x-8">
             <Link 
               to="/notes" 
-              className="text-gray-700 hover:text-blue-600 font-medium text-sm transition duration-150 ease-in-out"
+              className="text-foreground hover:text-blue-600 dark:hover:text-blue-400 font-medium text-sm transition duration-150 ease-in-out"
             >
               My Notes
             </Link>
             <Link 
               to="/shared" 
-              className="text-gray-700 hover:text-blue-600 font-medium text-sm transition duration-150 ease-in-out"
+              className="text-foreground hover:text-blue-600 dark:hover:text-blue-400 font-medium text-sm transition duration-150 ease-in-out"
             >
               Shared
             </Link>
@@ -60,15 +61,17 @@ const Navbar = () => {
               variant="ghost" 
               size="icon"
               onClick={toggleSearch}
-              className="text-gray-700 hover:text-blue-600"
+              className="text-foreground hover:text-blue-600 dark:hover:text-blue-400"
             >
               <Search size={20} />
             </Button>
             
+            <ThemeToggle />
+            
             {/* User profile dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium cursor-pointer">
+                <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-700 dark:text-blue-300 font-medium cursor-pointer">
                   {user?.name.charAt(0).toUpperCase()}
                 </div>
               </DropdownMenuTrigger>
@@ -76,7 +79,7 @@ const Navbar = () => {
                 <DropdownMenuLabel>
                   <div className="flex flex-col">
                     <span>{user?.name}</span>
-                    <span className="text-xs text-gray-500 font-normal">{user?.email}</span>
+                    <span className="text-xs text-muted-foreground font-normal">{user?.email}</span>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -99,7 +102,7 @@ const Navbar = () => {
               variant="ghost" 
               size="icon"
               onClick={toggleSearch}
-              className="mr-2 text-gray-700"
+              className="mr-2 text-foreground"
             >
               <Search size={20} />
             </Button>
@@ -108,7 +111,7 @@ const Navbar = () => {
               variant="ghost"
               size="icon"
               onClick={toggleMenu}
-              className="text-gray-700"
+              className="text-foreground"
             >
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </Button>
@@ -119,25 +122,25 @@ const Navbar = () => {
       {/* Mobile Navigation */}
       {menuOpen && (
         <div className="md:hidden animate-fade-in">
-          <div className="px-4 py-3 space-y-3 bg-white border-b border-gray-100">
+          <div className="px-4 py-3 space-y-3 bg-background border-b border-border">
             <Link 
               to="/notes" 
-              className="block py-2 text-gray-700 hover:text-blue-600 font-medium"
+              className="block py-2 text-foreground hover:text-blue-600 dark:hover:text-blue-400 font-medium"
               onClick={() => setMenuOpen(false)}
             >
               My Notes
             </Link>
             <Link 
               to="/shared" 
-              className="block py-2 text-gray-700 hover:text-blue-600 font-medium"
+              className="block py-2 text-foreground hover:text-blue-600 dark:hover:text-blue-400 font-medium"
               onClick={() => setMenuOpen(false)}
             >
               Shared
             </Link>
-            <div className="pt-2 border-t border-gray-100 space-y-2">
+            <div className="pt-2 border-t border-border space-y-2">
               <Button 
                 variant="ghost" 
-                className="w-full justify-start text-gray-700 hover:text-blue-600"
+                className="w-full justify-start text-foreground hover:text-blue-600 dark:hover:text-blue-400"
                 onClick={() => {
                   setMenuOpen(false);
                   setIsPasswordDialogOpen(true);
@@ -148,22 +151,25 @@ const Navbar = () => {
               </Button>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium mr-2">
+                  <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-700 dark:text-blue-300 font-medium mr-2">
                     {user?.name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-sm text-gray-600">{user?.name}</span>
+                  <span className="text-sm text-foreground">{user?.name}</span>
                 </div>
-                <Button
-                  onClick={() => {
-                    logout();
-                    setMenuOpen(false);
-                  }}
-                  variant="ghost"
-                  size="icon"
-                  className="text-gray-700"
-                >
-                  <LogOut size={20} />
-                </Button>
+                <div className="flex items-center">
+                  <ThemeToggle />
+                  <Button
+                    onClick={() => {
+                      logout();
+                      setMenuOpen(false);
+                    }}
+                    variant="ghost"
+                    size="icon"
+                    className="text-foreground"
+                  >
+                    <LogOut size={20} />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -172,7 +178,7 @@ const Navbar = () => {
 
       {/* Search overlay */}
       {searchOpen && (
-        <div className="absolute top-full left-0 right-0 bg-white border-b border-gray-100 p-4 shadow-sm animate-fade-in">
+        <div className="absolute top-full left-0 right-0 bg-background border-b border-border p-4 shadow-sm animate-fade-in">
           <SearchBar onClose={toggleSearch} />
         </div>
       )}

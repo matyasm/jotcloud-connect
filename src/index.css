@@ -79,7 +79,7 @@
 /* Custom styles */
 @layer components {
   .note-card {
-    @apply bg-white rounded-lg border border-gray-200 shadow-sm p-4 hover:shadow-md transition-all duration-200;
+    @apply bg-card rounded-lg border border-border shadow-sm p-4 hover:shadow-md transition-all duration-200;
   }
 
   .animate-fade-in {

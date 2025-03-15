@@ -37,13 +37,13 @@
   }
  
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222.2 47.4% 11.2%;
     --foreground: 210 40% 98%;
  
-    --card: 222.2 84% 4.9%;
+    --card: 222.2 47.4% 15.2%;
     --card-foreground: 210 40% 98%;
  
-    --popover: 222.2 84% 4.9%;
+    --popover: 222.2 47.4% 11.2%;
     --popover-foreground: 210 40% 98%;
  
     --primary: 210 40% 98%;
@@ -58,7 +58,7 @@
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
  
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 210 40% 98%;
  
     --border: 217.2 32.6% 17.5%;
@@ -130,7 +130,7 @@
   
   /* Purple Theme */
   .purple {
-    --background: 280 15% 98%;
+    --background: 280 15% 96%;
     --foreground: 280 50% 15%;
  
     --card: 280 15% 99%;
@@ -161,7 +161,7 @@
   
   /* Ocean Blue Theme */
   .blue {
-    --background: 210 50% 98%;
+    --background: 210 50% 96%;
     --foreground: 210 70% 10%;
  
     --card: 210 50% 99%;
@@ -196,16 +196,16 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-300;
   }
 }
 
 /* Custom styles */
 @layer components {
   .note-card {
-    @apply bg-card rounded-lg border border-border shadow-sm p-4 hover:shadow-md transition-all duration-200;
+    @apply bg-card rounded-lg border border-border shadow-sm p-4 hover:shadow-md transition-all duration-200 text-card-foreground;
   }
-
+  
   .animate-fade-in {
     animation: fadeIn 0.3s ease-in-out;
   }

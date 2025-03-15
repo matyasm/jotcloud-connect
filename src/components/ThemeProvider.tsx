@@ -30,6 +30,8 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement;
+    
+    // First remove all theme classes
     root.classList.remove("light", "dark", "brown-orange", "pastel", "purple", "blue");
 
     if (theme === "system") {
@@ -38,10 +40,16 @@ export function ThemeProvider({
         ? "dark"
         : "light";
       root.classList.add(systemTheme);
+      
+      // Also set a data attribute for more specific CSS targeting
+      root.setAttribute('data-theme', systemTheme);
       return;
     }
 
     root.classList.add(theme);
+    
+    // Set a data attribute for more specific CSS targeting
+    root.setAttribute('data-theme', theme);
   }, [theme]);
 
   const value = {

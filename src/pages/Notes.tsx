@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useStore } from "@/lib/store";
@@ -10,7 +11,7 @@ import { Note, NoteSort, ViewMode } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { 
   Plus, Filter, LayoutGrid, List, Search, X, 
-  Download, Upload, LayoutDashboard
+  Download, Upload, LayoutDashboard, Tag
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -18,11 +19,14 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 const Notes = () => {
   const location = useLocation();
@@ -34,6 +38,8 @@ const Notes = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [importInputRef, setImportInputRef] = useState<HTMLInputElement | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -47,6 +53,20 @@ const Notes = () => {
     }
   }, [location.search, notes]);
 
+  // Extract all unique tags from notes
+  useEffect(() => {
+    const tags = notes.reduce((acc: string[], note) => {
+      note.tags.forEach(tag => {
+        if (!acc.includes(tag)) {
+          acc.push(tag);
+        }
+      });
+      return acc;
+    }, []);
+    
+    setAllTags(tags.sort());
+  }, [notes]);
+
   useEffect(() => {
     let sorted = [...notes];
     
@@ -56,6 +76,13 @@ const Notes = () => {
         note.title.toLowerCase().includes(query) || 
         note.content.toLowerCase().includes(query) ||
         note.tags.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+    
+    // Filter by selected tags if any
+    if (selectedTags.length > 0) {
+      sorted = sorted.filter(note => 
+        selectedTags.every(tag => note.tags.includes(tag))
       );
     }
     
@@ -76,7 +103,7 @@ const Notes = () => {
     }
     
     setFilteredNotes(sorted);
-  }, [notes, sortBy, searchQuery]);
+  }, [notes, sortBy, searchQuery, selectedTags]);
 
   const handleNoteClick = (note: Note) => {
     setSelectedNote(note);
@@ -125,6 +152,18 @@ const Notes = () => {
     reader.readAsText(file);
   };
 
+  const toggleTagFilter = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag) 
+        : [...prev, tag]
+    );
+  };
+
+  const clearTagFilters = () => {
+    setSelectedTags([]);
+  };
+
   const container = {
     hidden: { opacity: 1 },
     show: {
@@ -141,15 +180,15 @@ const Notes = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
+    <div className="min-h-screen bg-background text-foreground">
       <Navbar />
       
       <main className="px-4 sm:px-6 py-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">My Notes</h1>
-              <p className="text-gray-600">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-1">My Notes</h1>
+              <p className="text-muted-foreground">
                 {filteredNotes.length} {filteredNotes.length === 1 ? "note" : "notes"}
               </p>
             </div>
@@ -233,6 +272,44 @@ const Notes = () => {
               )}
             </div>
             
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center">
+                  <Tag size={16} className="mr-2" />
+                  Tags {selectedTags.length > 0 && `(${selectedTags.length})`}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Filter by tags</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {allTags.length === 0 ? (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                    No tags available
+                  </div>
+                ) : (
+                  <>
+                    {allTags.map(tag => (
+                      <DropdownMenuCheckboxItem
+                        key={tag}
+                        checked={selectedTags.includes(tag)}
+                        onCheckedChange={() => toggleTagFilter(tag)}
+                      >
+                        {tag}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                    {selectedTags.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={clearTagFilters}>
+                          Clear filters
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <Tabs defaultValue={viewMode} className="w-[300px]" onValueChange={(value) => setViewMode(value as ViewMode)}>
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="grid" className="flex items-center justify-center">
@@ -250,6 +327,34 @@ const Notes = () => {
               </TabsList>
             </Tabs>
           </div>
+
+          {selectedTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {selectedTags.map(tag => (
+                <Badge 
+                  key={tag} 
+                  variant="secondary"
+                  className="flex items-center gap-1 pl-2"
+                >
+                  {tag}
+                  <button 
+                    onClick={() => toggleTagFilter(tag)}
+                    className="ml-1 rounded-full hover:bg-background/20 p-0.5"
+                  >
+                    <X size={14} />
+                  </button>
+                </Badge>
+              ))}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={clearTagFilters} 
+                className="h-6 px-2 text-xs"
+              >
+                Clear all
+              </Button>
+            </div>
+          )}
 
           {isCreating || selectedNote ? (
             <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center p-4 overflow-y-auto">
@@ -278,7 +383,7 @@ const Notes = () => {
               </motion.div>
             ) : viewMode === "list" ? (
               <motion.div 
-                className="bg-white rounded-lg shadow overflow-hidden"
+                className="bg-card rounded-lg shadow overflow-hidden"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
@@ -316,21 +421,31 @@ const Notes = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              {searchQuery ? (
+              {searchQuery || selectedTags.length > 0 ? (
                 <>
                   <h3 className="text-xl font-medium text-gray-900 mb-2">No matching notes</h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-muted-foreground mb-6">
                     Try adjusting your search or filters to find what you're looking for.
                   </p>
-                  <Button onClick={clearSearch} variant="outline" className="flex items-center mx-auto">
-                    <X size={16} className="mr-2" />
-                    Clear Search
-                  </Button>
+                  <div className="flex gap-2 justify-center">
+                    {searchQuery && (
+                      <Button onClick={clearSearch} variant="outline" className="flex items-center mx-auto">
+                        <X size={16} className="mr-2" />
+                        Clear Search
+                      </Button>
+                    )}
+                    {selectedTags.length > 0 && (
+                      <Button onClick={clearTagFilters} variant="outline" className="flex items-center mx-auto">
+                        <X size={16} className="mr-2" />
+                        Clear Tag Filters
+                      </Button>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
                   <h3 className="text-xl font-medium text-gray-900 mb-2">No notes yet</h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-muted-foreground mb-6">
                     Create your first note by clicking the button above.
                   </p>
                   <Button onClick={handleCreateNote} className="flex items-center mx-auto">

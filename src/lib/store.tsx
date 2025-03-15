@@ -3,7 +3,6 @@ import { User, Note, AuthStatus } from './types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-// Mock data for initial development - this will be removed
 const initialNotes: Note[] = [];
 
 interface StoreContextType {
@@ -33,7 +32,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [notes, setNotes] = useState<Note[]>([]);
   const [sharedNotes, setSharedNotes] = useState<Note[]>([]);
 
-  // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -48,14 +46,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (data.session) {
           const { user: supabaseUser } = data.session;
           
-          // Get user profile from the profiles table
           const { data: profileData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', supabaseUser.id)
             .single();
           
-          // For Google auth, try to use the display name or email
           const displayName = supabaseUser.user_metadata?.full_name || 
                              supabaseUser.user_metadata?.name;
           
@@ -79,18 +75,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     checkSession();
     
-    // Set up auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state change event:', event);
       if (event === 'SIGNED_IN' && session) {
-        // Get user profile
         const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
         
-        // For Google auth, try to use the display name or email
         const displayName = session.user.user_metadata?.full_name || 
                            session.user.user_metadata?.name;
         
@@ -116,10 +109,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // Fetch notes from Supabase
   const fetchNotes = async (userId: string) => {
     try {
-      // Get user's notes
       const { data, error } = await supabase
         .from('notes')
         .select('*, profiles:profiles(name)')
@@ -133,7 +124,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       if (data) {
-        // Transform the data to match our Note type
         const formattedNotes: Note[] = data.map(note => ({
           id: note.id,
           title: note.title,
@@ -152,12 +142,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setNotes(formattedNotes);
       }
 
-      // Get shared notes (public notes or notes shared with this user)
       const { data: sharedData, error: sharedError } = await supabase
         .from('notes')
         .select('*, profiles:profiles(name)')
         .or(`shared_with.cs.{'*'}, shared_with.cs.{'${userId}'}`)
-        .neq('owner', userId) // Don't include user's own notes
+        .neq('owner', userId)
         .order('updated_at', { ascending: false });
 
       if (sharedError) {
@@ -190,7 +179,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Login handler
   const login = async (email: string, password: string) => {
     try {
       setAuthStatus('loading');
@@ -201,15 +189,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
       
       if (error) throw error;
-      
-      // Auth state change listener will update the state
     } catch (error: any) {
       setAuthStatus('unauthenticated');
       throw error;
     }
   };
 
-  // Register handler
   const register = async (name: string, email: string, password: string) => {
     try {
       setAuthStatus('loading');
@@ -225,16 +210,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
       
       if (error) throw error;
-      
-      // The trigger we set up will create a profile record
-      // Auth state change listener will update the state
     } catch (error: any) {
       setAuthStatus('unauthenticated');
       throw error;
     }
   };
 
-  // Logout handler
   const logout = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -243,15 +224,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.error('Error signing out:', error);
         toast.error('Failed to sign out');
       }
-      
-      // Auth state change listener will handle the state update
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Failed to sign out');
     }
   };
 
-  // Create note - now using Supabase
   const createNote = async (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt' | 'owner'>) => {
     if (!user) {
       toast.error('You must be logged in to create notes');
@@ -280,7 +258,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw error;
       }
 
-      // Add the new note to the state
       if (data) {
         const newNote: Note = {
           id: data.id,
@@ -305,7 +282,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Update note - now using Supabase
   const updateNote = async (id: string, noteUpdate: Partial<Note>) => {
     if (!user) {
       toast.error('You must be logged in to update notes');
@@ -313,7 +289,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     try {
-      // Prepare the update data
       const updateData: any = {};
       if (noteUpdate.title !== undefined) updateData.title = noteUpdate.title;
       if (noteUpdate.content !== undefined) updateData.content = noteUpdate.content;
@@ -333,7 +308,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw error;
       }
 
-      // Update the note in state
       setNotes(prev => 
         prev.map(note => 
           note.id === id 
@@ -347,7 +321,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Delete note - now using Supabase
   const deleteNote = async (id: string) => {
     if (!user) {
       toast.error('You must be logged in to delete notes');
@@ -367,7 +340,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw error;
       }
 
-      // Remove the note from state
       setNotes(prev => prev.filter(note => note.id !== id));
     } catch (error) {
       console.error('Error in deleteNote:', error);
@@ -375,7 +347,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Share note - now using Supabase
   const shareNote = async (id: string, emails: string[]) => {
     if (!user) {
       toast.error('You must be logged in to share notes');
@@ -383,7 +354,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     try {
-      // First, get the current note to get the existing sharedWith
       const { data: noteData, error: fetchError } = await supabase
         .from('notes')
         .select('shared_with')
@@ -415,7 +385,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw updateError;
       }
 
-      // Update the note in state
       setNotes(prev => 
         prev.map(note => 
           note.id === id 
@@ -434,7 +403,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Share note with all users (public note)
   const shareNoteWithAll = async (id: string, share: boolean) => {
     if (!user) {
       toast.error('You must be logged in to share notes');
@@ -446,7 +414,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .from('notes')
         .update({ 
           shared: share,
-          shared_with: share ? ['*'] : [] // Use '*' to indicate shared with everyone
+          shared_with: share ? ['*'] : [] 
         })
         .eq('id', id)
         .eq('owner', user.id);
@@ -457,7 +425,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw error;
       }
 
-      // Update the note in state
       setNotes(prev => 
         prev.map(note => 
           note.id === id 
@@ -478,7 +445,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Like note
   const likeNote = async (id: string) => {
     if (!user) {
       toast.error('You must be logged in to like notes');
@@ -486,7 +452,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     try {
-      // First, get the current note to get existing likes
       const { data: noteData, error: fetchError } = await supabase
         .from('notes')
         .select('likes, liked_by_names')
@@ -502,19 +467,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const currentLikes = noteData?.likes || [];
       const currentLikedByNames = noteData?.liked_by_names || [];
       
-      // Check if user already liked the note
       const userLiked = currentLikes.includes(user.id);
       
-      // Toggle like status
       let updatedLikes: string[];
       let updatedLikedByNames: string[];
       
       if (userLiked) {
-        // Remove like
         updatedLikes = currentLikes.filter(id => id !== user.id);
         updatedLikedByNames = currentLikedByNames.filter(name => name !== user.name);
       } else {
-        // Add like
         updatedLikes = [...currentLikes, user.id];
         updatedLikedByNames = [...currentLikedByNames, user.name];
       }
@@ -533,7 +494,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw updateError;
       }
 
-      // Update both notes and sharedNotes states
       const updateNoteState = (prevNotes: Note[]) => 
         prevNotes.map(note => 
           note.id === id 
@@ -555,29 +515,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Export notes to JSON file
   const exportNotes = () => {
     try {
-      // Create a JSON string of all notes
       const notesJson = JSON.stringify(notes, null, 2);
-      
-      // Create a blob with the JSON data
       const blob = new Blob([notesJson], { type: 'application/json' });
-      
-      // Create a URL for the blob
       const url = URL.createObjectURL(blob);
-      
-      // Create a download link and trigger it
       const a = document.createElement('a');
       a.href = url;
       a.download = `notes_export_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
-      
-      // Clean up
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
       toast.success('Notes exported successfully');
     } catch (error) {
       console.error('Error exporting notes:', error);
@@ -585,7 +534,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Import notes from JSON file
   const importNotes = async (notesJson: string) => {
     if (!user) {
       toast.error('You must be logged in to import notes');
@@ -593,7 +541,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     try {
-      // Parse the JSON string
       const importedNotes = JSON.parse(notesJson);
       
       if (!Array.isArray(importedNotes)) {
@@ -601,10 +548,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
       
-      // Start a loading toast
       const loadingToast = toast.loading(`Importing ${importedNotes.length} notes...`);
       
-      // Prepare notes for import (remove ids and set owner to current user)
       const notesToImport = importedNotes.map((note: any) => ({
         title: note.title || 'Imported Note',
         content: note.content || '',
@@ -616,7 +561,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         liked_by_names: []
       }));
       
-      // Insert all notes in a single batch
       const { data, error } = await supabase
         .from('notes')
         .insert(notesToImport)
@@ -628,7 +572,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw error;
       }
       
-      // Update local state with new notes
       if (data) {
         const newNotes = data.map(note => ({
           id: note.id,
@@ -647,7 +590,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setNotes(prev => [...newNotes, ...prev]);
       }
       
-      // Close the loading toast and show success
       toast.dismiss(loadingToast);
       toast.success(`Successfully imported ${notesToImport.length} notes`);
     } catch (error) {
@@ -656,7 +598,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Search notes - local implementation
   const searchNotes = (query: string) => {
     if (!query.trim()) return notes;
     

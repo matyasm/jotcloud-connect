@@ -56,15 +56,14 @@ const NoteCondensedCard = ({ note, onClick }: NoteCondensedCardProps) => {
 
   return (
     <motion.div 
-      className="bg-white border border-gray-200 rounded-md p-2 shadow-sm hover:shadow-md transition-all duration-200 h-32 overflow-hidden flex flex-col dark:bg-card dark:border-border"
-      // Remove the initial opacity: 0 to make notes visible right away
+      className="bg-card border border-border rounded-md p-2 shadow-sm hover:shadow-md transition-all duration-200 h-32 overflow-hidden flex flex-col"
       initial={{ y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       onClick={() => onClick(note)}
     >
       <div className="flex justify-between items-start mb-1">
-        <h3 className="text-sm font-medium text-gray-900 truncate pr-2 dark:text-foreground">{note.title}</h3>
+        <h3 className="text-sm font-medium text-foreground truncate pr-2">{note.title}</h3>
         <div className="flex space-x-1">
           {note.owner === user?.id && (
             <>
@@ -73,13 +72,13 @@ const NoteCondensedCard = ({ note, onClick }: NoteCondensedCardProps) => {
                   e.stopPropagation(); 
                   onClick(note);
                 }}
-                className="p-0.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors duration-150 dark:hover:bg-gray-800 dark:text-gray-400 dark:hover:text-blue-400"
+                className="p-0.5 rounded-full hover:bg-accent text-muted-foreground hover:text-primary transition-colors duration-150"
               >
                 <Edit size={12} />
               </button>
               <button 
                 onClick={handleDelete}
-                className="p-0.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-600 transition-colors duration-150 dark:hover:bg-gray-800 dark:text-gray-400 dark:hover:text-red-400"
+                className="p-0.5 rounded-full hover:bg-accent text-muted-foreground hover:text-destructive transition-colors duration-150"
               >
                 <Trash size={12} />
               </button>
@@ -88,11 +87,11 @@ const NoteCondensedCard = ({ note, onClick }: NoteCondensedCardProps) => {
         </div>
       </div>
       
-      <div className="text-xs text-gray-600 line-clamp-3 flex-grow cursor-pointer dark:text-gray-300">
+      <div className="text-xs text-muted-foreground line-clamp-3 flex-grow cursor-pointer">
         {note.content}
       </div>
       
-      <div className="flex justify-between items-center mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+      <div className="flex justify-between items-center mt-1 text-[10px] text-muted-foreground">
         <div className="flex items-center">
           <Clock size={10} className="mr-1" />
           {format(new Date(note.updatedAt), 'MMM d')}
@@ -125,46 +124,28 @@ const NoteCondensedCard = ({ note, onClick }: NoteCondensedCardProps) => {
             </TooltipProvider>
           )}
           
-          {(note.likes?.length || 0) > 0 && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={handleLike}
-                    className="flex items-center"
-                  >
-                    <Heart size={10} className={`${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={handleLike}
+                  className="flex items-center"
+                >
+                  <Heart size={10} className={`${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+                  {(note.likes?.length || 0) > 0 && (
                     <span className="ml-0.5">{note.likes?.length || 0}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">
-                    {isLiked ? 'Unlike' : 'Like'} this note
-                    <br />
-                    Liked by: {note.likedByNames?.join(', ') || 'No one yet'}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          
-          {!note.likes?.length && note.owner === user?.id && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={handleLike}
-                    className="flex items-center opacity-70 hover:opacity-100"
-                  >
-                    <Heart size={10} className={`${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">{isLiked ? 'Unlike' : 'Like'} this note</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  {isLiked ? 'Unlike' : 'Like'} this note
+                  <br />
+                  Liked by: {note.likedByNames?.join(', ') || 'No one yet'}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         
         {note.tags.length > 0 && note.tags.length <= 2 && (
@@ -172,7 +153,7 @@ const NoteCondensedCard = ({ note, onClick }: NoteCondensedCardProps) => {
             {note.tags.slice(0, 2).map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center px-1 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
+                className="inline-flex items-center px-1 rounded text-[10px] font-medium bg-primary/10 text-primary"
               >
                 {tag}
               </span>

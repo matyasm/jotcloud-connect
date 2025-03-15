@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Note, AuthStatus } from './types';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,6 +20,9 @@ interface StoreContextType {
   shareNote: (id: string, emails: string[]) => Promise<void>;
   shareNoteWithAll: (id: string, share: boolean) => Promise<void>;
   searchNotes: (query: string) => Note[];
+  exportNotes: () => void;
+  importNotes: (notesJson: string) => Promise<void>;
+  likeNote: (id: string) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -117,9 +119,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Fetch notes from Supabase
   const fetchNotes = async (userId: string) => {
     try {
+      // Get user's notes
       const { data, error } = await supabase
         .from('notes')
-        .select('*')
+        .select('*, profiles:profiles(name)')
         .eq('owner', userId)
         .order('updated_at', { ascending: false });
 
@@ -138,12 +141,48 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           createdAt: note.created_at,
           updatedAt: note.updated_at,
           owner: note.owner,
+          creatorName: note.profiles?.name,
           shared: note.shared,
           sharedWith: note.shared_with || [],
-          tags: note.tags || []
+          tags: note.tags || [],
+          likes: note.likes || [],
+          likedByNames: note.liked_by_names || []
         }));
         
         setNotes(formattedNotes);
+      }
+
+      // Get shared notes (public notes or notes shared with this user)
+      const { data: sharedData, error: sharedError } = await supabase
+        .from('notes')
+        .select('*, profiles:profiles(name)')
+        .or(`shared_with.cs.{'*'}, shared_with.cs.{'${userId}'}`)
+        .neq('owner', userId) // Don't include user's own notes
+        .order('updated_at', { ascending: false });
+
+      if (sharedError) {
+        console.error('Error fetching shared notes:', sharedError);
+        toast.error('Failed to load shared notes');
+        return;
+      }
+
+      if (sharedData) {
+        const formattedSharedNotes: Note[] = sharedData.map(note => ({
+          id: note.id,
+          title: note.title,
+          content: note.content,
+          createdAt: note.created_at,
+          updatedAt: note.updated_at,
+          owner: note.owner,
+          creatorName: note.profiles?.name,
+          shared: note.shared,
+          sharedWith: note.shared_with || [],
+          tags: note.tags || [],
+          likes: note.likes || [],
+          likedByNames: note.liked_by_names || []
+        }));
+        
+        setSharedNotes(formattedSharedNotes);
       }
     } catch (error) {
       console.error('Error in fetchNotes:', error);
@@ -228,9 +267,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           owner: user.id,
           shared: note.shared,
           shared_with: note.sharedWith,
-          tags: note.tags
+          tags: note.tags,
+          likes: []
         })
-        .select()
+        .select('*, profiles:profiles(name)')
         .single();
 
       if (error) {
@@ -248,9 +288,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           createdAt: data.created_at,
           updatedAt: data.updated_at,
           owner: data.owner,
+          creatorName: data.profiles?.name,
           shared: data.shared,
           sharedWith: data.shared_with || [],
-          tags: data.tags || []
+          tags: data.tags || [],
+          likes: data.likes || [],
+          likedByNames: data.liked_by_names || []
         };
         
         setNotes(prev => [newNote, ...prev]);
@@ -434,6 +477,183 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Like note
+  const likeNote = async (id: string) => {
+    if (!user) {
+      toast.error('You must be logged in to like notes');
+      return;
+    }
+
+    try {
+      // First, get the current note to get existing likes
+      const { data: noteData, error: fetchError } = await supabase
+        .from('notes')
+        .select('likes, liked_by_names')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching note:', fetchError);
+        toast.error('Failed to like note');
+        throw fetchError;
+      }
+
+      const currentLikes = noteData?.likes || [];
+      const currentLikedByNames = noteData?.liked_by_names || [];
+      
+      // Check if user already liked the note
+      const userLiked = currentLikes.includes(user.id);
+      
+      // Toggle like status
+      let updatedLikes: string[];
+      let updatedLikedByNames: string[];
+      
+      if (userLiked) {
+        // Remove like
+        updatedLikes = currentLikes.filter(id => id !== user.id);
+        updatedLikedByNames = currentLikedByNames.filter(name => name !== user.name);
+      } else {
+        // Add like
+        updatedLikes = [...currentLikes, user.id];
+        updatedLikedByNames = [...currentLikedByNames, user.name];
+      }
+
+      const { error: updateError } = await supabase
+        .from('notes')
+        .update({ 
+          likes: updatedLikes,
+          liked_by_names: updatedLikedByNames
+        })
+        .eq('id', id);
+
+      if (updateError) {
+        console.error('Error liking note:', updateError);
+        toast.error('Failed to like note');
+        throw updateError;
+      }
+
+      // Update both notes and sharedNotes states
+      const updateNoteState = (prevNotes: Note[]) => 
+        prevNotes.map(note => 
+          note.id === id 
+            ? { 
+                ...note, 
+                likes: updatedLikes,
+                likedByNames: updatedLikedByNames
+              } 
+            : note
+        );
+
+      setNotes(updateNoteState);
+      setSharedNotes(updateNoteState);
+      
+      toast.success(userLiked ? 'Removed like' : 'Added like');
+    } catch (error) {
+      console.error('Error in likeNote:', error);
+      throw error;
+    }
+  };
+
+  // Export notes to JSON file
+  const exportNotes = () => {
+    try {
+      // Create a JSON string of all notes
+      const notesJson = JSON.stringify(notes, null, 2);
+      
+      // Create a blob with the JSON data
+      const blob = new Blob([notesJson], { type: 'application/json' });
+      
+      // Create a URL for the blob
+      const url = URL.createObjectURL(blob);
+      
+      // Create a download link and trigger it
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `notes_export_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Notes exported successfully');
+    } catch (error) {
+      console.error('Error exporting notes:', error);
+      toast.error('Failed to export notes');
+    }
+  };
+
+  // Import notes from JSON file
+  const importNotes = async (notesJson: string) => {
+    if (!user) {
+      toast.error('You must be logged in to import notes');
+      return;
+    }
+
+    try {
+      // Parse the JSON string
+      const importedNotes = JSON.parse(notesJson);
+      
+      if (!Array.isArray(importedNotes)) {
+        toast.error('Invalid notes format');
+        return;
+      }
+      
+      // Start a loading toast
+      const loadingToast = toast.loading(`Importing ${importedNotes.length} notes...`);
+      
+      // Prepare notes for import (remove ids and set owner to current user)
+      const notesToImport = importedNotes.map((note: any) => ({
+        title: note.title || 'Imported Note',
+        content: note.content || '',
+        tags: Array.isArray(note.tags) ? note.tags : [],
+        shared: false,
+        shared_with: [],
+        owner: user.id,
+        likes: []
+      }));
+      
+      // Insert all notes in a single batch
+      const { data, error } = await supabase
+        .from('notes')
+        .insert(notesToImport)
+        .select();
+      
+      if (error) {
+        console.error('Error importing notes:', error);
+        toast.error('Failed to import notes');
+        throw error;
+      }
+      
+      // Update local state with new notes
+      if (data) {
+        const newNotes = data.map(note => ({
+          id: note.id,
+          title: note.title,
+          content: note.content,
+          createdAt: note.created_at,
+          updatedAt: note.updated_at,
+          owner: note.owner,
+          shared: note.shared,
+          sharedWith: note.shared_with || [],
+          tags: note.tags || [],
+          likes: note.likes || [],
+          likedByNames: note.liked_by_names || []
+        }));
+        
+        setNotes(prev => [...newNotes, ...prev]);
+      }
+      
+      // Close the loading toast and show success
+      toast.dismiss(loadingToast);
+      toast.success(`Successfully imported ${notesToImport.length} notes`);
+    } catch (error) {
+      console.error('Error importing notes:', error);
+      toast.error('Failed to import notes: Invalid format');
+    }
+  };
+
   // Search notes - local implementation
   const searchNotes = (query: string) => {
     if (!query.trim()) return notes;
@@ -459,7 +679,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     deleteNote,
     shareNote,
     shareNoteWithAll,
-    searchNotes
+    searchNotes,
+    exportNotes,
+    importNotes,
+    likeNote
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

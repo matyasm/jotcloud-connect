@@ -5,10 +5,14 @@ import { useStore } from "@/lib/store";
 import Navbar from "@/components/Navbar";
 import NoteCard from "@/components/NoteCard";
 import NoteListItem from "@/components/NoteListItem";
+import NoteCondensedCard from "@/components/NoteCondensedCard";
 import NoteEditor from "@/components/NoteEditor";
-import { Note, NoteSort } from "@/lib/types";
+import { Note, NoteSort, ViewMode } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter, LayoutGrid, List, Search, X } from "lucide-react";
+import { 
+  Plus, Filter, LayoutGrid, List, Search, X, 
+  Download, Upload, LayoutDashboard
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,18 +23,18 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-
-type ViewMode = "grid" | "list";
+import { toast } from "sonner";
 
 const Notes = () => {
   const location = useLocation();
-  const { notes } = useStore();
+  const { notes, exportNotes, importNotes } = useStore();
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [sortBy, setSortBy] = useState<NoteSort>("recent");
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const [importInputRef, setImportInputRef] = useState<HTMLInputElement | null>(null);
 
   // Get the note ID from the URL if present
   useEffect(() => {
@@ -98,6 +102,35 @@ const Notes = () => {
     setSearchQuery("");
   };
 
+  const handleImportClick = () => {
+    if (importInputRef) {
+      importInputRef.click();
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const jsonContent = event.target?.result as string;
+        await importNotes(jsonContent);
+      } catch (error) {
+        console.error('Error reading file:', error);
+        toast.error('Failed to read file');
+      }
+      
+      // Reset input value to allow selecting the same file again
+      if (e.target) {
+        e.target.value = '';
+      }
+    };
+    
+    reader.readAsText(file);
+  };
+
   const container = {
     hidden: { opacity: 0 },
     show: {
@@ -150,10 +183,39 @@ const Notes = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
               
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center">
+                    <Download size={16} className="mr-2" />
+                    Export/Import
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Manage Notes</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={exportNotes} className="flex items-center">
+                    <Download size={16} className="mr-2" />
+                    Export Notes
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleImportClick} className="flex items-center">
+                    <Upload size={16} className="mr-2" />
+                    Import Notes
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
               <Button onClick={handleCreateNote} className="flex items-center">
                 <Plus size={16} className="mr-2" />
                 New Note
               </Button>
+              
+              {/* Hidden file input for import */}
+              <input 
+                type="file" 
+                accept=".json" 
+                className="hidden" 
+                onChange={handleFileUpload}
+                ref={setImportInputRef}
+              />
             </div>
           </div>
 
@@ -180,11 +242,15 @@ const Notes = () => {
               )}
             </div>
             
-            <Tabs defaultValue={viewMode} className="w-[200px]" onValueChange={(value) => setViewMode(value as ViewMode)}>
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs defaultValue={viewMode} className="w-[300px]" onValueChange={(value) => setViewMode(value as ViewMode)}>
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="grid" className="flex items-center justify-center">
                   <LayoutGrid size={16} className="mr-2" />
                   Grid
+                </TabsTrigger>
+                <TabsTrigger value="condensed" className="flex items-center justify-center">
+                  <LayoutDashboard size={16} className="mr-2" />
+                  Condensed
                 </TabsTrigger>
                 <TabsTrigger value="list" className="flex items-center justify-center">
                   <List size={16} className="mr-2" />
@@ -220,7 +286,7 @@ const Notes = () => {
                   ))}
                 </AnimatePresence>
               </motion.div>
-            ) : (
+            ) : viewMode === "list" ? (
               <motion.div 
                 className="bg-white rounded-lg shadow overflow-hidden"
                 initial={{ opacity: 0 }}
@@ -234,6 +300,21 @@ const Notes = () => {
                       note={note}
                       onClick={handleNoteClick}
                     />
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            ) : (
+              <motion.div 
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+                variants={container}
+                initial="hidden"
+                animate="show"
+              >
+                <AnimatePresence>
+                  {filteredNotes.map((note) => (
+                    <motion.div key={note.id} variants={item} layout>
+                      <NoteCondensedCard note={note} onClick={handleNoteClick} />
+                    </motion.div>
                   ))}
                 </AnimatePresence>
               </motion.div>

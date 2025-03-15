@@ -6,19 +6,13 @@ import NoteCard from "@/components/NoteCard";
 import NoteEditor from "@/components/NoteEditor";
 import { Note } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Share2 } from "lucide-react";
+import { Share2, Heart } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const SharedNotes = () => {
-  const { notes } = useStore();
+  const { sharedNotes, user, likeNote } = useStore();
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [sharedNotes, setSharedNotes] = useState<Note[]>([]);
-
-  // Filter shared notes
-  useEffect(() => {
-    const filtered = notes.filter(note => note.shared);
-    setSharedNotes(filtered);
-  }, [notes]);
 
   const handleNoteClick = (note: Note) => {
     setSelectedNote(note);
@@ -26,6 +20,17 @@ const SharedNotes = () => {
 
   const handleCloseEditor = () => {
     setSelectedNote(null);
+  };
+
+  const handleLikeNote = async (noteId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+    
+    try {
+      await likeNote(noteId);
+    } catch (error) {
+      console.error('Error liking note:', error);
+    }
   };
 
   const container = {
@@ -64,6 +69,7 @@ const SharedNotes = () => {
                 <NoteEditor
                   note={selectedNote}
                   onClose={handleCloseEditor}
+                  readOnly
                 />
               </div>
             </div>
@@ -77,7 +83,49 @@ const SharedNotes = () => {
               <AnimatePresence>
                 {sharedNotes.map((note) => (
                   <motion.div key={note.id} variants={item} layout>
-                    <NoteCard note={note} onClick={handleNoteClick} />
+                    <div className="note-card relative">
+                      <NoteCard note={note} onClick={handleNoteClick} />
+                      
+                      {/* Creator info and like button */}
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                        {note.creatorName && (
+                          <div className="text-sm text-gray-600">
+                            Created by: <span className="font-medium">{note.creatorName}</span>
+                          </div>
+                        )}
+                        
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button 
+                                onClick={(e) => handleLikeNote(note.id, e)}
+                                className="flex items-center space-x-1 text-sm text-gray-600"
+                              >
+                                <Heart 
+                                  size={16} 
+                                  className={`
+                                    ${note.likes?.includes(user?.id || '') 
+                                      ? 'fill-red-500 text-red-500' 
+                                      : 'text-gray-400'}
+                                    transition-colors
+                                  `}
+                                />
+                                <span>{note.likes?.length || 0}</span>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {note.likes?.length ? (
+                                <p className="text-xs">
+                                  Liked by: {note.likedByNames?.join(', ') || 'No one yet'}
+                                </p>
+                              ) : (
+                                <p className="text-xs">Be the first to like this note</p>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </div>
                   </motion.div>
                 ))}
               </AnimatePresence>

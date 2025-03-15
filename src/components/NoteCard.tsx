@@ -3,7 +3,7 @@ import { Note } from '@/lib/types';
 import { format } from 'date-fns';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/lib/store';
-import { Share2, Trash, Edit, Clock, User, Globe, Lock } from 'lucide-react';
+import { Share2, Trash, Edit, Clock, User, Globe, Lock, Heart } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface NoteCardProps {
   note: Note;
@@ -18,12 +19,13 @@ interface NoteCardProps {
 }
 
 const NoteCard = ({ note, onClick }: NoteCardProps) => {
-  const { deleteNote, shareNote, shareNoteWithAll } = useStore();
+  const { deleteNote, shareNote, shareNoteWithAll, user, likeNote } = useStore();
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPublic, setIsPublic] = useState(note.sharedWith.includes('*'));
+  const isLiked = note.likes?.includes(user?.id || '') || false;
 
   const handleShare = async () => {
     if (!shareEmail.trim()) return;
@@ -65,6 +67,17 @@ const NoteCard = ({ note, onClick }: NoteCardProps) => {
       console.error('Error deleting note:', error);
       setIsDeleting(false);
       toast.error('Failed to delete note');
+    }
+  };
+
+  const handleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+    
+    try {
+      await likeNote(note.id);
+    } catch (error) {
+      console.error('Error liking note:', error);
     }
   };
 
@@ -133,22 +146,55 @@ const NoteCard = ({ note, onClick }: NoteCardProps) => {
           {format(new Date(note.updatedAt), 'MMM d, yyyy')}
         </div>
         
-        <div className="flex items-center">
-          {isPublic ? (
-            <>
-              <Globe size={12} className="mr-1 text-green-500" />
-              <span className="text-green-500">Public</span>
-            </>
-          ) : note.shared ? (
-            <>
-              <User size={12} className="mr-1" />
-              {note.sharedWith.length} {note.sharedWith.length === 1 ? 'person' : 'people'}
-            </>
-          ) : (
-            <>
-              <Lock size={12} className="mr-1" />
-              <span>Private</span>
-            </>
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center">
+            {isPublic ? (
+              <>
+                <Globe size={12} className="mr-1 text-green-500" />
+                <span className="text-green-500">Public</span>
+              </>
+            ) : note.shared ? (
+              <>
+                <User size={12} className="mr-1" />
+                {note.sharedWith.length} {note.sharedWith.length === 1 ? 'person' : 'people'}
+              </>
+            ) : (
+              <>
+                <Lock size={12} className="mr-1" />
+                <span>Private</span>
+              </>
+            )}
+          </div>
+          
+          {note.shared && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={handleLike}
+                    className="flex items-center"
+                  >
+                    <Heart 
+                      size={12} 
+                      className={`
+                        ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}
+                        transition-colors
+                      `}
+                    />
+                    <span className="ml-1">{note.likes?.length || 0}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {note.likes?.length ? (
+                    <p className="text-xs">
+                      Liked by: {note.likedByNames?.join(', ') || 'No one yet'}
+                    </p>
+                  ) : (
+                    <p className="text-xs">Be the first to like this note</p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       </div>

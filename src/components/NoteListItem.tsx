@@ -47,15 +47,15 @@ const NoteListItem = ({ note, onClick }: NoteListItemProps) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="py-3 px-4 border-b border-gray-100 hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
+      className="py-2 px-4 border-b border-gray-100 hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
       onClick={() => onClick(note)}
     >
       <div className="flex justify-between items-center">
         <div className="flex-1 min-w-0 mr-4">
           <h3 className="text-base font-medium text-gray-900 truncate">{note.title}</h3>
-          <p className="text-sm text-gray-600 truncate mt-1">{note.content}</p>
+          <p className="text-sm text-gray-600 truncate">{note.content}</p>
           
-          <div className="flex items-center space-x-4 mt-2">
+          <div className="flex items-center space-x-4 mt-1">
             <div className="flex items-center text-xs text-gray-500">
               <Clock size={12} className="mr-1" />
               {format(new Date(note.updatedAt), 'MMM d, yyyy')}

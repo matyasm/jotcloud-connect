@@ -23,16 +23,6 @@ const LandingNavbar = () => {
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <a 
-              href="#about" 
-              className="text-foreground hover:text-blue-600 dark:hover:text-blue-400 font-medium text-sm transition duration-150 ease-in-out"
-            >
-              About
-            </a>
-          </nav>
-
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-4">
             <ThemeToggle />
@@ -66,13 +56,6 @@ const LandingNavbar = () => {
       {menuOpen && (
         <div className="md:hidden animate-fade-in">
           <div className="px-4 py-3 space-y-3 bg-background border-b border-border">
-            <a
-              href="#about"
-              className="block py-2 text-foreground hover:text-blue-600 dark:hover:text-blue-400 font-medium"
-              onClick={() => setMenuOpen(false)}
-            >
-              About
-            </a>
             <div className="pt-4 flex flex-col space-y-3 border-t border-border">
               <Link 
                 to="/login" 

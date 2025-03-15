@@ -1,5 +1,5 @@
 
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Palette, Coffee, Flower, Zap, Droplets } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,6 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
 export function ThemeToggle() {
@@ -23,13 +24,33 @@ export function ThemeToggle() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => setTheme("light")}>
+          <Sun className="h-4 w-4 mr-2" />
           Light
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")}>
+          <Moon className="h-4 w-4 mr-2" />
           Dark
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("system")}>
+          <Palette className="h-4 w-4 mr-2" />
           System
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setTheme("brown-orange")}>
+          <Coffee className="h-4 w-4 mr-2" />
+          Warm Orange
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("pastel")}>
+          <Flower className="h-4 w-4 mr-2" />
+          Pastel
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("purple")}>
+          <Zap className="h-4 w-4 mr-2" />
+          Purple
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("blue")}>
+          <Droplets className="h-4 w-4 mr-2" />
+          Ocean Blue
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

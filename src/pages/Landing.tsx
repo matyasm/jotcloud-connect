@@ -7,7 +7,7 @@ import LandingNavbar from "@/components/LandingNavbar";
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 dark:from-background dark:to-background/80">
       {/* Landing page specific navbar */}
       <LandingNavbar />
 
@@ -19,7 +19,7 @@ const Landing = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="text-4xl md:text-6xl font-bold tracking-tight text-gray-900 max-w-4xl mx-auto"
+              className="text-4xl md:text-6xl font-bold tracking-tight text-gray-900 max-w-4xl mx-auto dark:text-gray-100"
             >
               Note-taking reimagined for the modern world
             </motion.h1>
@@ -28,7 +28,7 @@ const Landing = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-              className="mt-6 text-xl text-gray-600 max-w-2xl mx-auto"
+              className="mt-6 text-xl text-gray-600 max-w-2xl mx-auto dark:text-gray-300"
             >
               Notifly helps you organize thoughts, ideas, and important information all in one place, with powerful sharing and search capabilities.
             </motion.p>
@@ -56,18 +56,15 @@ const Landing = () => {
         </section>
 
         {/* CTA section */}
-        <section className="py-20 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+        <section className="py-20 bg-gradient-to-r from-blue-600 to-blue-700 text-white dark:from-blue-800 dark:to-blue-900">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
             <h2 className="text-3xl font-bold">Start taking better notes today</h2>
-            <p className="mt-4 text-lg text-blue-100 max-w-2xl mx-auto">
-              Join thousands of users who have improved their productivity with Notifly's elegant note-taking experience.
-            </p>
             <div className="mt-10">
               <Link to="/register">
                 <Button 
                   size="lg" 
                   variant="secondary" 
-                  className="px-8 bg-white text-blue-700 hover:bg-blue-50"
+                  className="px-8 bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-100"
                 >
                   Create your account
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -78,12 +75,12 @@ const Landing = () => {
         </section>
       </main>
 
-      <footer className="bg-white py-12 border-t border-gray-100">
+      <footer className="bg-white py-12 border-t border-gray-100 dark:bg-background dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
-          <div className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-blue-700 mb-6">
+          <div className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-blue-700 mb-6 dark:from-blue-400 dark:to-blue-600">
             Notifly
           </div>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 text-sm dark:text-gray-400">
             &copy; {new Date().getFullYear()} Notifly. All rights reserved.
           </p>
         </div>

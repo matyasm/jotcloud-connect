@@ -16,8 +16,8 @@ export interface Note {
   shared: boolean;
   sharedWith: string[];
   tags: string[];
-  likes?: string[];
-  likedByNames?: string[];
+  likes: string[];
+  likedByNames: string[];
 }
 
 export type NoteSort = 'recent' | 'title' | 'created';

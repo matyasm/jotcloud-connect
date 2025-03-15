@@ -69,7 +69,6 @@ const SharedNotes = () => {
                 <NoteEditor
                   note={selectedNote}
                   onClose={handleCloseEditor}
-                  readOnly
                 />
               </div>
             </div>

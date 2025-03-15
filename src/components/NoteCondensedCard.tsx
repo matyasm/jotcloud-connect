@@ -45,7 +45,8 @@ const NoteCondensedCard = ({ note, onClick }: NoteCondensedCardProps) => {
   return (
     <motion.div 
       className="bg-white border border-gray-200 rounded-md p-2 shadow-sm hover:shadow-md transition-all duration-200 h-32 overflow-hidden flex flex-col"
-      initial={{ opacity: 0, y: 20 }}
+      // Remove the initial opacity: 0 to make notes visible right away
+      initial={{ y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       onClick={() => onClick(note)}

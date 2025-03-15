@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useStore } from "@/lib/store";
@@ -36,7 +35,6 @@ const Notes = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [importInputRef, setImportInputRef] = useState<HTMLInputElement | null>(null);
 
-  // Get the note ID from the URL if present
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const noteId = searchParams.get("id");
@@ -49,11 +47,9 @@ const Notes = () => {
     }
   }, [location.search, notes]);
 
-  // Sort and filter notes
   useEffect(() => {
     let sorted = [...notes];
     
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       sorted = sorted.filter(note => 
@@ -63,7 +59,6 @@ const Notes = () => {
       );
     }
     
-    // Apply sorting
     switch (sortBy) {
       case "recent":
         sorted = sorted.sort((a, b) => 
@@ -122,7 +117,6 @@ const Notes = () => {
         toast.error('Failed to read file');
       }
       
-      // Reset input value to allow selecting the same file again
       if (e.target) {
         e.target.value = '';
       }
@@ -132,7 +126,7 @@ const Notes = () => {
   };
 
   const container = {
-    hidden: { opacity: 0 },
+    hidden: { opacity: 1 },
     show: {
       opacity: 1,
       transition: {
@@ -142,7 +136,7 @@ const Notes = () => {
   };
 
   const item = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { y: 20 },
     show: { opacity: 1, y: 0 }
   };
 
@@ -152,7 +146,6 @@ const Notes = () => {
       
       <main className="px-4 sm:px-6 py-8">
         <div className="max-w-7xl mx-auto">
-          {/* Notes header section */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">My Notes</h1>
@@ -208,7 +201,6 @@ const Notes = () => {
                 New Note
               </Button>
               
-              {/* Hidden file input for import */}
               <input 
                 type="file" 
                 accept=".json" 
@@ -219,7 +211,6 @@ const Notes = () => {
             </div>
           </div>
 
-          {/* Search and view controls */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -260,7 +251,6 @@ const Notes = () => {
             </Tabs>
           </div>
 
-          {/* Editor overlay or notes display */}
           {isCreating || selectedNote ? (
             <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center p-4 overflow-y-auto">
               <div className="w-full max-w-3xl">
@@ -275,7 +265,7 @@ const Notes = () => {
               <motion.div 
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
                 variants={container}
-                initial="hidden"
+                initial="show"
                 animate="show"
               >
                 <AnimatePresence>
@@ -307,7 +297,7 @@ const Notes = () => {
               <motion.div 
                 className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
                 variants={container}
-                initial="hidden"
+                initial="show"
                 animate="show"
               >
                 <AnimatePresence>

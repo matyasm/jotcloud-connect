@@ -67,7 +67,9 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
           content: content.trim(),
           shared: false,
           sharedWith: [],
-          tags
+          tags,
+          likes: [],
+          likedByNames: []
         });
         toast.success('Note created');
       } else if (note) {

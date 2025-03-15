@@ -63,10 +63,7 @@ const NoteCondensedCard = ({ note, onClick }: NoteCondensedCardProps) => {
             <Edit size={12} />
           </button>
           <button 
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              handleDelete(e); // Fixed: Added event parameter here
-            }}
+            onClick={handleDelete}
             className="p-0.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-600 transition-colors duration-150"
           >
             <Trash size={12} />

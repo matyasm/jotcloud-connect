@@ -14,6 +14,8 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          liked_by_names: string[] | null
+          likes: string[] | null
           owner: string
           shared: boolean
           shared_with: string[]
@@ -25,6 +27,8 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          liked_by_names?: string[] | null
+          likes?: string[] | null
           owner: string
           shared?: boolean
           shared_with?: string[]
@@ -36,6 +40,8 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          liked_by_names?: string[] | null
+          likes?: string[] | null
           owner?: string
           shared?: boolean
           shared_with?: string[]

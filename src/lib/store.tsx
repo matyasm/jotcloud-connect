@@ -268,7 +268,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           shared: note.shared,
           shared_with: note.sharedWith,
           tags: note.tags,
-          likes: []
+          likes: note.likes || [],
+          liked_by_names: note.likedByNames || []
         })
         .select('*, profiles:profiles(name)')
         .single();
@@ -611,7 +612,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         shared: false,
         shared_with: [],
         owner: user.id,
-        likes: []
+        likes: [],
+        liked_by_names: []
       }));
       
       // Insert all notes in a single batch

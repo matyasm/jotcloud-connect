@@ -51,6 +51,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const checkSession = async () => {
       try {
+        console.log('Checking session...');
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -61,6 +62,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         
         if (data.session) {
           const { user: supabaseUser } = data.session;
+          console.log('Session found, user:', supabaseUser.email);
           
           const { data: profileData } = await supabase
             .from('profiles')
@@ -77,11 +79,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             name: profileData?.name || displayName || supabaseUser.email?.split('@')[0] || ''
           };
           
+          console.log('Setting user data:', userData.email);
           setUser(userData);
           setAuthStatus('authenticated');
           fetchNotes(supabaseUser.id);
           fetchTasks(supabaseUser.id);
         } else {
+          console.log('No session found');
           setAuthStatus('unauthenticated');
         }
       } catch (err) {
@@ -95,6 +99,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state change event:', event);
       if (event === 'SIGNED_IN' && session) {
+        console.log('User signed in:', session.user.email);
+        
         const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
@@ -115,6 +121,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         fetchNotes(session.user.id);
         fetchTasks(session.user.id);
       } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out');
         setUser(null);
         setAuthStatus('unauthenticated');
         setNotes([]);
@@ -131,6 +138,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const fetchNotes = async (userId: string) => {
     try {
+      console.log('Fetching notes for user:', userId);
       const { data, error } = await supabase
         .from('notes')
         .select('*, profiles:profiles(name)')
@@ -144,6 +152,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       if (data) {
+        console.log('Found', data.length, 'notes for user');
         const formattedNotes: Note[] = data.map(note => ({
           id: note.id,
           title: note.title,
@@ -211,6 +220,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.error('Error fetching public notes:', publicError);
         toast.error('Failed to load public notes');
       } else if (publicData) {
+        console.log('Public notes found:', publicData.length);
         const formattedPublicNotes: Note[] = publicData.map(note => ({
           id: note.id,
           title: note.title,
@@ -279,14 +289,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const login = async (email: string, password: string) => {
     try {
+      console.log('Login attempt for:', email);
       setAuthStatus('loading');
       
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Login error:', error);
+        setAuthStatus('unauthenticated');
+        throw error;
+      }
+      
+      if (data.user) {
+        console.log('Login successful for:', data.user.email);
+        const userData: User = {
+          id: data.user.id,
+          email: data.user.email || '',
+          name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || ''
+        };
+        
+        setUser(userData);
+        setAuthStatus('authenticated');
+        fetchNotes(data.user.id);
+        fetchTasks(data.user.id);
+      }
     } catch (error: any) {
       setAuthStatus('unauthenticated');
       throw error;
@@ -724,7 +753,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       const nextPosition = positionData && positionData.length > 0 ? positionData[0].position + 1 : 0;
       
-      // Fix: Explicitly cast the status to the correct type
       const taskStatus: 'pending' | 'active' | 'paused' | 'completed' = task.status || 'pending';
       
       const { data, error } = await supabase
@@ -732,7 +760,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .insert({
           title: task.title,
           description: task.description,
-          status: taskStatus, // Use the properly typed status
+          status: taskStatus,
           owner: user.id,
           position: nextPosition,
           total_time_seconds: 0,
@@ -1151,3 +1179,4 @@ export const useStore = () => {
   }
   return context;
 };
+

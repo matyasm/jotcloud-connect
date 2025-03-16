@@ -22,6 +22,7 @@ const Login = () => {
   useEffect(() => {
     console.log("Auth status in Login component:", authStatus);
     if (authStatus === 'authenticated') {
+      console.log("User is authenticated, redirecting to /notes");
       navigate('/notes');
     }
   }, [authStatus, navigate]);
@@ -50,6 +51,7 @@ const Login = () => {
   useEffect(() => {
     if (authStatus === 'authenticated') {
       setIsSubmitting(false);
+      console.log("Auth status changed to authenticated, redirecting to /notes");
       navigate('/notes');
     } else if (authStatus === 'unauthenticated') {
       setIsSubmitting(false);
@@ -89,7 +91,19 @@ const Login = () => {
       console.log("Login process started, current auth status:", authStatus);
       
       await login(email, password);
-      // Navigation is handled by the useEffect
+      
+      // Extra check to force navigation if needed
+      setTimeout(() => {
+        console.log("Post-login timeout check, current auth status:", authStatus);
+        const checkCurrentSession = async () => {
+          const { data } = await supabase.auth.getSession();
+          if (data.session) {
+            console.log("Session exists after login, forcing navigation");
+            navigate('/notes');
+          }
+        };
+        checkCurrentSession();
+      }, 1000);
     } catch (error: any) {
       console.error("Login error:", error);
       

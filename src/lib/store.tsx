@@ -313,8 +313,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         
         setUser(userData);
         setAuthStatus('authenticated');
-        fetchNotes(data.user.id);
-        fetchTasks(data.user.id);
+        await fetchNotes(data.user.id);
+        await fetchTasks(data.user.id);
+        
+        console.log('Manually triggering auth state update after login');
       }
     } catch (error: any) {
       setAuthStatus('unauthenticated');
@@ -1179,4 +1181,3 @@ export const useStore = () => {
   }
   return context;
 };
-

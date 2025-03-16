@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { StoreProvider, useStore } from "./lib/store";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { useEffect } from "react";
 
 // Pages
 import Landing from "./pages/Landing";
@@ -19,11 +20,21 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Protected route component
+// Protected route component with improved loading state
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { authStatus } = useStore();
   
   console.log("Protected route auth status:", authStatus);
+  
+  useEffect(() => {
+    if (authStatus === 'authenticated') {
+      console.log("Protected route: User is authenticated");
+    } else if (authStatus === 'unauthenticated') {
+      console.log("Protected route: User is not authenticated, redirecting to login");
+    } else {
+      console.log("Protected route: Auth status is still loading");
+    }
+  }, [authStatus]);
   
   if (authStatus === 'loading') {
     return (
@@ -49,6 +60,13 @@ const AppRoutes = () => {
   
   // Only show loading state for protected routes, not for the entire app
   const AuthRoute = ({ children }: { children: React.ReactNode }) => {
+    useEffect(() => {
+      console.log("Auth route: auth status is", authStatus);
+      if (authStatus === 'authenticated') {
+        console.log("Auth route: User is authenticated, should redirect to /notes");
+      }
+    }, [authStatus]);
+    
     if (authStatus === 'loading') {
       return (
         <div className="min-h-screen flex items-center justify-center">

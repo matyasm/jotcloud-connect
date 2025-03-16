@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
@@ -17,6 +18,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
+  const [manualNavigationAttempted, setManualNavigationAttempted] = useState(false);
   
   // Redirect if already authenticated
   useEffect(() => {
@@ -57,6 +59,35 @@ const Login = () => {
       setIsSubmitting(false);
     }
   }, [authStatus, navigate]);
+  
+  // Add a timeout to check for direct session if we get stuck
+  useEffect(() => {
+    if (isSubmitting && !manualNavigationAttempted) {
+      const timer = setTimeout(() => {
+        console.log("Login timeout reached, checking session directly");
+        checkSessionDirectly();
+        setManualNavigationAttempted(true);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isSubmitting, manualNavigationAttempted]);
+  
+  const checkSessionDirectly = async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        console.log("Session exists, manually navigating to /notes");
+        navigate('/notes');
+      } else {
+        console.log("No session found in direct check");
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      console.error("Error in direct session check:", error);
+      setIsSubmitting(false);
+    }
+  };
 
   const validateForm = () => {
     let valid = true;
@@ -88,22 +119,33 @@ const Login = () => {
     
     try {
       setIsSubmitting(true);
+      setManualNavigationAttempted(false);
       console.log("Login process started, current auth status:", authStatus);
       
       await login(email, password);
       
+      // Force navigation after a delay if not already navigated
+      setTimeout(() => {
+        if (document.location.pathname === '/login') {
+          console.log("Still on login page after successful login, forcing navigation");
+          navigate('/notes');
+        }
+      }, 1000);
+      
       // Extra check to force navigation if needed
       setTimeout(() => {
-        console.log("Post-login timeout check, current auth status:", authStatus);
-        const checkCurrentSession = async () => {
-          const { data } = await supabase.auth.getSession();
-          if (data.session) {
-            console.log("Session exists after login, forcing navigation");
-            navigate('/notes');
-          }
-        };
-        checkCurrentSession();
-      }, 1000);
+        console.log("Post-login timeout check, current path:", document.location.pathname);
+        if (document.location.pathname === '/login') {
+          const checkCurrentSession = async () => {
+            const { data } = await supabase.auth.getSession();
+            if (data.session) {
+              console.log("Session exists after login, forcing navigation");
+              navigate('/notes');
+            }
+          };
+          checkCurrentSession();
+        }
+      }, 2000);
     } catch (error: any) {
       console.error("Login error:", error);
       
@@ -139,7 +181,7 @@ const Login = () => {
   };
 
   // If user is not yet authenticated or still loading, show the login form
-  if (authStatus === 'loading') {
+  if (authStatus === 'loading' && !isSubmitting) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-center">

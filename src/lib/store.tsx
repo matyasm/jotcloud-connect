@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Note, AuthStatus, Task, TaskTimeEntry, TimeMetrics, WeekMetrics, MonthMetrics } from './types';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,6 +48,45 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [sharedNotes, setSharedNotes] = useState<Note[]>([]);
   const [publicNotes, setPublicNotes] = useState<Note[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [authInitialized, setAuthInitialized] = useState(false);
+
+  // Function to process user data from supabase user
+  const processUserData = async (supabaseUser: any) => {
+    if (!supabaseUser) {
+      console.log('No user found in processUserData');
+      setAuthStatus('unauthenticated');
+      setUser(null);
+      return null;
+    }
+    
+    try {
+      console.log('Processing user data for:', supabaseUser.email);
+      
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', supabaseUser.id)
+        .single();
+      
+      const displayName = supabaseUser.user_metadata?.full_name || 
+                         supabaseUser.user_metadata?.name;
+      
+      const userData: User = {
+        id: supabaseUser.id,
+        email: supabaseUser.email || '',
+        name: profileData?.name || displayName || supabaseUser.email?.split('@')[0] || ''
+      };
+      
+      console.log('User data processed:', userData.email);
+      setUser(userData);
+      setAuthStatus('authenticated');
+      
+      return userData;
+    } catch (err) {
+      console.error('Error processing user data:', err);
+      return null;
+    }
+  };
 
   useEffect(() => {
     const checkSession = async () => {
@@ -57,6 +97,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (error) {
           console.error('Error checking session:', error);
           setAuthStatus('unauthenticated');
+          setAuthInitialized(true);
           return;
         }
         
@@ -64,33 +105,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const { user: supabaseUser } = data.session;
           console.log('Session found, user:', supabaseUser.email);
           
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', supabaseUser.id)
-            .single();
+          const userData = await processUserData(supabaseUser);
           
-          const displayName = supabaseUser.user_metadata?.full_name || 
-                             supabaseUser.user_metadata?.name;
-          
-          const userData: User = {
-            id: supabaseUser.id,
-            email: supabaseUser.email || '',
-            name: profileData?.name || displayName || supabaseUser.email?.split('@')[0] || ''
-          };
-          
-          console.log('Setting user data:', userData.email);
-          setUser(userData);
-          setAuthStatus('authenticated');
-          fetchNotes(supabaseUser.id);
-          fetchTasks(supabaseUser.id);
+          if (userData) {
+            await fetchNotes(userData.id);
+            await fetchTasks(userData.id);
+          }
         } else {
           console.log('No session found');
           setAuthStatus('unauthenticated');
         }
+        
+        setAuthInitialized(true);
       } catch (err) {
         console.error('Error in session check:', err);
         setAuthStatus('unauthenticated');
+        setAuthInitialized(true);
       }
     };
     
@@ -98,28 +128,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state change event:', event);
+      
       if (event === 'SIGNED_IN' && session) {
         console.log('User signed in:', session.user.email);
         
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        const userData = await processUserData(session.user);
         
-        const displayName = session.user.user_metadata?.full_name || 
-                           session.user.user_metadata?.name;
-        
-        const userData: User = {
-          id: session.user.id,
-          email: session.user.email || '',
-          name: profileData?.name || displayName || session.user.email?.split('@')[0] || ''
-        };
-        
-        setUser(userData);
-        setAuthStatus('authenticated');
-        fetchNotes(session.user.id);
-        fetchTasks(session.user.id);
+        if (userData) {
+          await fetchNotes(userData.id);
+          await fetchTasks(userData.id);
+        }
       } else if (event === 'SIGNED_OUT') {
         console.log('User signed out');
         setUser(null);
@@ -137,6 +155,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const fetchNotes = async (userId: string) => {
+    if (!userId) {
+      console.error('Cannot fetch notes: No user ID provided');
+      return;
+    }
+    
     try {
       console.log('Fetching notes for user:', userId);
       const { data, error } = await supabase
@@ -171,26 +194,63 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setNotes(formattedNotes);
       }
 
-      const { data: userEmail } = await supabase.auth.getUser();
-      const email = userEmail?.user?.email;
+      // Fetch user email for shared notes
+      try {
+        const { data: userEmail } = await supabase.auth.getUser();
+        const email = userEmail?.user?.email;
 
-      if (email) {
-        console.log('Fetching shared notes for email:', email);
-        
-        const { data: sharedSpecificData, error: sharedSpecificError } = await supabase
+        if (email) {
+          console.log('Fetching shared notes for email:', email);
+          
+          const { data: sharedSpecificData, error: sharedSpecificError } = await supabase
+            .from('notes')
+            .select('*, profiles:profiles(name)')
+            .contains('shared_with', [email])
+            .neq('owner', userId)
+            .order('updated_at', { ascending: false });
+
+          if (sharedSpecificError) {
+            console.error('Error fetching shared notes:', sharedSpecificError);
+            toast.error('Failed to load shared notes');
+          } else if (sharedSpecificData) {
+            console.log('Shared notes found:', sharedSpecificData.length);
+            
+            const formattedSharedNotes: Note[] = sharedSpecificData.map(note => ({
+              id: note.id,
+              title: note.title,
+              content: note.content,
+              createdAt: note.created_at,
+              updatedAt: note.updated_at,
+              owner: note.owner,
+              creatorName: note.profiles?.name,
+              shared: note.shared,
+              sharedWith: note.shared_with || [],
+              tags: note.tags || [],
+              likes: note.likes || [],
+              likedByNames: note.liked_by_names || []
+            }));
+            
+            setSharedNotes(formattedSharedNotes);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user email for shared notes:', error);
+      }
+
+      // Fetch public notes
+      try {
+        const { data: publicData, error: publicError } = await supabase
           .from('notes')
           .select('*, profiles:profiles(name)')
-          .contains('shared_with', [email])
-          .neq('owner', userId)
+          .contains('shared_with', ['*'])
           .order('updated_at', { ascending: false });
 
-        if (sharedSpecificError) {
-          console.error('Error fetching shared notes:', sharedSpecificError);
-          toast.error('Failed to load shared notes');
-        } else if (sharedSpecificData) {
-          console.log('Shared notes found:', sharedSpecificData.length);
-          
-          const formattedSharedNotes: Note[] = sharedSpecificData.map(note => ({
+        if (publicError) {
+          console.error('Error fetching public notes:', publicError);
+          toast.error('Failed to load public notes');
+        } else if (publicData) {
+          console.log('Public notes found:', publicData.length);
+          const formattedPublicNotes: Note[] = publicData.map(note => ({
             id: note.id,
             title: note.title,
             content: note.content,
@@ -205,38 +265,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             likedByNames: note.liked_by_names || []
           }));
           
-          setSharedNotes(formattedSharedNotes);
+          setPublicNotes(formattedPublicNotes);
         }
-      }
-
-      const { data: publicData, error: publicError } = await supabase
-        .from('notes')
-        .select('*, profiles:profiles(name)')
-        .contains('shared_with', ['*'])
-        .neq('owner', userId)
-        .order('updated_at', { ascending: false });
-
-      if (publicError) {
-        console.error('Error fetching public notes:', publicError);
-        toast.error('Failed to load public notes');
-      } else if (publicData) {
-        console.log('Public notes found:', publicData.length);
-        const formattedPublicNotes: Note[] = publicData.map(note => ({
-          id: note.id,
-          title: note.title,
-          content: note.content,
-          createdAt: note.created_at,
-          updatedAt: note.updated_at,
-          owner: note.owner,
-          creatorName: note.profiles?.name,
-          shared: note.shared,
-          sharedWith: note.shared_with || [],
-          tags: note.tags || [],
-          likes: note.likes || [],
-          likedByNames: note.liked_by_names || []
-        }));
-        
-        setPublicNotes(formattedPublicNotes);
+      } catch (error) {
+        console.error('Error fetching public notes:', error);
       }
     } catch (error) {
       console.error('Error in fetchNotes:', error);
@@ -245,6 +277,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const fetchTasks = async (userId: string) => {
+    if (!userId) {
+      console.error('Cannot fetch tasks: No user ID provided');
+      return;
+    }
+    
     try {
       console.log('Fetching tasks for user:', userId);
       
@@ -305,18 +342,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       if (data.user) {
         console.log('Login successful for:', data.user.email);
-        const userData: User = {
-          id: data.user.id,
-          email: data.user.email || '',
-          name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || ''
-        };
+        const userData = await processUserData(data.user);
         
-        setUser(userData);
-        setAuthStatus('authenticated');
-        await fetchNotes(data.user.id);
-        await fetchTasks(data.user.id);
-        
-        console.log('Manually triggering auth state update after login');
+        if (userData) {
+          await fetchNotes(userData.id);
+          await fetchTasks(userData.id);
+          
+          console.log('Authentication completed, state is now:', 'authenticated');
+          
+          // Force an immediate auth state update
+          setAuthStatus('authenticated');
+        }
       }
     } catch (error: any) {
       setAuthStatus('unauthenticated');

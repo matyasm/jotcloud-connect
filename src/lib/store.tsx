@@ -991,3 +991,157 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       const updates = taskIds.map((id, index) => ({
+        id,
+        position: index
+      }));
+      
+      for (const update of updates) {
+        await updateTask(update.id, { position: update.position });
+      }
+      
+      const reorderedTasks = [...tasks]
+        .sort((a, b) => {
+          const aIndex = taskIds.indexOf(a.id);
+          const bIndex = taskIds.indexOf(b.id);
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+          return aIndex - bIndex;
+        });
+      
+      setTasks(reorderedTasks);
+    } catch (error) {
+      console.error('Error reordering tasks:', error);
+      toast.error('Failed to reorder tasks');
+    }
+  };
+
+  const getTimeMetricsByDay = () => {
+    if (!tasks.length) return [];
+    
+    const tasksByDay: Record<string, Task[]> = {};
+    
+    tasks.forEach(task => {
+      if (task.totalTimeSeconds > 0) {
+        const createdDate = format(new Date(task.createdAt), 'yyyy-MM-dd');
+        if (!tasksByDay[createdDate]) {
+          tasksByDay[createdDate] = [];
+        }
+        tasksByDay[createdDate].push(task);
+      }
+    });
+    
+    return Object.entries(tasksByDay).map(([day, dayTasks]) => {
+      const totalSeconds = dayTasks.reduce((acc, task) => acc + task.totalTimeSeconds, 0);
+      return {
+        day,
+        totalSeconds,
+        tasks: dayTasks
+      };
+    });
+  };
+  
+  const getTimeMetricsByWeek = () => {
+    const dailyMetrics = getTimeMetricsByDay();
+    if (!dailyMetrics.length) return [];
+    
+    const weekMap = new Map<string, TimeMetrics[]>();
+    
+    dailyMetrics.forEach(dayMetric => {
+      const date = parseISO(dayMetric.day);
+      const weekStart = format(startOfWeek(date), 'yyyy-MM-dd');
+      const weekEnd = format(endOfWeek(date), 'yyyy-MM-dd');
+      const weekKey = `${weekStart}|${weekEnd}`;
+      
+      if (!weekMap.has(weekKey)) {
+        weekMap.set(weekKey, []);
+      }
+      
+      weekMap.get(weekKey)?.push(dayMetric);
+    });
+    
+    return Array.from(weekMap.entries()).map(([weekKey, days]) => {
+      const [weekStart, weekEnd] = weekKey.split('|');
+      const totalSeconds = days.reduce((acc, day) => acc + day.totalSeconds, 0);
+      
+      return {
+        weekStart,
+        weekEnd,
+        totalSeconds,
+        days
+      };
+    });
+  };
+  
+  const getTimeMetricsByMonth = () => {
+    const weeklyMetrics = getTimeMetricsByWeek();
+    if (!weeklyMetrics.length) return [];
+    
+    const monthMap = new Map<string, WeekMetrics[]>();
+    
+    weeklyMetrics.forEach(weekMetric => {
+      const startDate = parseISO(weekMetric.weekStart);
+      const month = format(startDate, 'yyyy-MM');
+      
+      if (!monthMap.has(month)) {
+        monthMap.set(month, []);
+      }
+      
+      monthMap.get(month)?.push(weekMetric);
+    });
+    
+    return Array.from(monthMap.entries()).map(([month, weeks]) => {
+      const totalSeconds = weeks.reduce((acc, week) => acc + week.totalSeconds, 0);
+      
+      return {
+        month,
+        totalSeconds,
+        weeks
+      };
+    });
+  };
+
+  return (
+    <StoreContext.Provider
+      value={{
+        authStatus,
+        user,
+        notes,
+        sharedNotes,
+        publicNotes,
+        login,
+        register,
+        logout,
+        createNote,
+        updateNote,
+        deleteNote,
+        shareNote,
+        shareNoteWithAll,
+        searchNotes,
+        exportNotes,
+        importNotes,
+        likeNote,
+        tasks,
+        createTask,
+        updateTask,
+        deleteTask,
+        startTask,
+        pauseTask,
+        completeTask,
+        reorderTasks,
+        getTimeMetricsByDay,
+        getTimeMetricsByWeek,
+        getTimeMetricsByMonth
+      }}
+    >
+      {children}
+    </StoreContext.Provider>
+  );
+};
+
+export const useStore = () => {
+  const context = useContext(StoreContext);
+  if (context === undefined) {
+    throw new Error('useStore must be used within a StoreProvider');
+  }
+  return context;
+};

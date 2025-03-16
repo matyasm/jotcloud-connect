@@ -162,18 +162,42 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setNotes(formattedNotes);
       }
 
-      const { data: sharedSpecificData, error: sharedSpecificError } = await supabase
-        .from('notes')
-        .select('*, profiles:profiles(name)')
-        .contains('shared_with', [userId])
-        .not('shared_with', 'cs', '{*}')
-        .neq('owner', userId)
-        .order('updated_at', { ascending: false });
+      const { data: userEmail } = await supabase.auth.getUser();
+      const email = userEmail?.user?.email;
 
-      if (sharedSpecificError) {
-        console.error('Error fetching shared notes:', sharedSpecificError);
-        toast.error('Failed to load shared notes');
-        return;
+      if (email) {
+        console.log('Fetching shared notes for email:', email);
+        
+        const { data: sharedSpecificData, error: sharedSpecificError } = await supabase
+          .from('notes')
+          .select('*, profiles:profiles(name)')
+          .contains('shared_with', [email])
+          .neq('owner', userId)
+          .order('updated_at', { ascending: false });
+
+        if (sharedSpecificError) {
+          console.error('Error fetching shared notes:', sharedSpecificError);
+          toast.error('Failed to load shared notes');
+        } else if (sharedSpecificData) {
+          console.log('Shared notes found:', sharedSpecificData.length);
+          
+          const formattedSharedNotes: Note[] = sharedSpecificData.map(note => ({
+            id: note.id,
+            title: note.title,
+            content: note.content,
+            createdAt: note.created_at,
+            updatedAt: note.updated_at,
+            owner: note.owner,
+            creatorName: note.profiles?.name,
+            shared: note.shared,
+            sharedWith: note.shared_with || [],
+            tags: note.tags || [],
+            likes: note.likes || [],
+            likedByNames: note.liked_by_names || []
+          }));
+          
+          setSharedNotes(formattedSharedNotes);
+        }
       }
 
       const { data: publicData, error: publicError } = await supabase
@@ -186,29 +210,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (publicError) {
         console.error('Error fetching public notes:', publicError);
         toast.error('Failed to load public notes');
-        return;
-      }
-
-      if (sharedSpecificData) {
-        const formattedSharedNotes: Note[] = sharedSpecificData.map(note => ({
-          id: note.id,
-          title: note.title,
-          content: note.content,
-          createdAt: note.created_at,
-          updatedAt: note.updated_at,
-          owner: note.owner,
-          creatorName: note.profiles?.name,
-          shared: note.shared,
-          sharedWith: note.shared_with || [],
-          tags: note.tags || [],
-          likes: note.likes || [],
-          likedByNames: note.liked_by_names || []
-        }));
-        
-        setSharedNotes(formattedSharedNotes);
-      }
-
-      if (publicData) {
+      } else if (publicData) {
         const formattedPublicNotes: Note[] = publicData.map(note => ({
           id: note.id,
           title: note.title,
@@ -234,6 +236,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const fetchTasks = async (userId: string) => {
     try {
+      console.log('Fetching tasks for user:', userId);
+      
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -247,6 +251,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       if (data) {
+        console.log('Tasks found:', data.length);
+        
         const formattedTasks: Task[] = data.map(task => ({
           id: task.id,
           title: task.title,

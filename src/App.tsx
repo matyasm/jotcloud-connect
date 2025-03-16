@@ -19,11 +19,15 @@ import SharedNotes from "./pages/SharedNotes";
 import PublicNotes from "./pages/PublicNotes";
 import NotFound from "./pages/NotFound";
 
+// Create query client with error handling
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      onError: (error) => {
+        console.error('Query error:', error);
+      }
     },
   },
 });
@@ -111,6 +115,48 @@ const AppRoutes = () => {
   );
 };
 
+const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
+  const [hasError, setHasError] = useState(false);
+  const [error, setError] = useState<any>(null);
+
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error('Global error caught:', event.error);
+      setError(event.error);
+      setHasError(true);
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-red-50 dark:bg-red-900/20 p-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-red-600 dark:text-red-400">Something went wrong</h2>
+          <p className="mt-2 text-gray-600 dark:text-gray-300">
+            The application encountered an unexpected error.
+          </p>
+          {error && (
+            <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded overflow-auto text-sm">
+              <p>{error.toString()}</p>
+            </div>
+          )}
+          <button 
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            onClick={() => window.location.reload()}
+          >
+            Reload Application
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+
 const App = () => {
   // Initialize auth listener at the app level
   useEffect(() => {
@@ -124,19 +170,21 @@ const App = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <StoreProvider>
-        <ThemeProvider defaultTheme="system">
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </TooltipProvider>
-        </ThemeProvider>
-      </StoreProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <StoreProvider>
+          <ThemeProvider defaultTheme="system">
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </TooltipProvider>
+          </ThemeProvider>
+        </StoreProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

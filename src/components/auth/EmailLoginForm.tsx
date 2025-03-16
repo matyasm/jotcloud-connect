@@ -67,10 +67,9 @@ const EmailLoginForm = ({ isSubmitting, setIsSubmitting }: EmailLoginFormProps) 
         // Ensure the session is persisted
         await supabase.auth.setSession(data.session);
         
-        // Use setTimeout to ensure component state updates before navigation
-        setTimeout(() => {
-          navigate('/notes', { replace: true });
-        }, 200);
+        // Navigate immediately to notes page
+        navigate('/notes');
+        setIsSubmitting(false);
       } else {
         console.error("EmailLoginForm - No session returned from login");
         toast.error("Login failed. Please try again.");

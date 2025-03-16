@@ -23,11 +23,13 @@ const queryClient = new QueryClient();
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { authStatus } = useStore();
   
+  console.log("Protected route auth status:", authStatus);
+  
   if (authStatus === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-center">
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Loading protected content...</p>
         </div>
       </div>
     );
@@ -43,27 +45,29 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   const { authStatus } = useStore();
   
-  // Show loading state while auth is being checked
-  if (authStatus === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-center">
-          <p className="text-gray-600">Loading application...</p>
-        </div>
-      </div>
-    );
-  }
+  console.log("App routes auth status:", authStatus);
   
-  // Redirect authenticated users away from auth pages
+  // Only show loading state for protected routes, not for the entire app
   const AuthRoute = ({ children }: { children: React.ReactNode }) => {
+    if (authStatus === 'loading') {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-pulse text-center">
+            <p className="text-gray-600">Checking authentication...</p>
+          </div>
+        </div>
+      );
+    }
+    
     return authStatus === 'authenticated' ? <Navigate to="/notes" /> : <>{children}</>;
   };
   
   return (
     <Routes>
-      {/* Landing page as the root route */}
+      {/* Landing page is accessible without authentication checks */}
       <Route path="/" element={<Landing />} />
       
+      {/* Auth routes */}
       <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
       <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
       
@@ -73,6 +77,7 @@ const AppRoutes = () => {
       <Route path="/shared" element={<ProtectedRoute><SharedNotes /></ProtectedRoute>} />
       <Route path="/public" element={<ProtectedRoute><PublicNotes /></ProtectedRoute>} />
       
+      {/* Fallback route */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

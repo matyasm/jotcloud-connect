@@ -1,8 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
 interface SessionCheckProps {
   children: React.ReactNode;
@@ -15,13 +13,11 @@ const SessionCheck = ({ children, onSessionCheckComplete }: SessionCheckProps) =
   useEffect(() => {
     const checkSession = async () => {
       try {
-        console.log("SessionCheck - Authentication check disabled");
-        
-        // Check if there's an active session to help with login state tracking
+        // Check if there's an active session
         const { data } = await supabase.auth.getSession();
         console.log("SessionCheck - Session check result:", data.session ? "Has session" : "No session");
         
-        // Complete the session check regardless of result
+        // Complete the session check
         setIsChecking(false);
         onSessionCheckComplete();
       } catch (error) {
@@ -38,7 +34,11 @@ const SessionCheck = ({ children, onSessionCheckComplete }: SessionCheckProps) =
     };
   }, [onSessionCheckComplete]);
 
-  // Always render children after session check is complete
+  // Only render children after session check is complete
+  if (isChecking) {
+    return null;
+  }
+  
   return <>{children}</>;
 };
 

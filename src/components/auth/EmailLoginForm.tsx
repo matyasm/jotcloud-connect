@@ -50,9 +50,6 @@ const EmailLoginForm = ({ isSubmitting, setIsSubmitting }: EmailLoginFormProps) 
       setIsSubmitting(true);
       console.log("EmailLoginForm - Signing in with credentials");
       
-      // Clear any existing sessions first
-      await supabase.auth.signOut();
-      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -64,12 +61,10 @@ const EmailLoginForm = ({ isSubmitting, setIsSubmitting }: EmailLoginFormProps) 
         console.log("EmailLoginForm - Login successful, session established");
         toast.success("Login successful!");
         
-        // Ensure the session is persisted
-        await supabase.auth.setSession(data.session);
-        
-        // Navigate immediately to notes page
-        navigate('/notes');
-        setIsSubmitting(false);
+        // Navigate to notes page with a slight delay to allow state updates
+        setTimeout(() => {
+          navigate('/notes', { replace: true });
+        }, 100);
       } else {
         console.error("EmailLoginForm - No session returned from login");
         toast.error("Login failed. Please try again.");

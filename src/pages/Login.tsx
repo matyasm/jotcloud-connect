@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
@@ -12,82 +13,41 @@ import { Separator } from "@/components/ui/separator";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, authStatus, user } = useStore();
+  const { login } = useStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
-  const [loginAttempted, setLoginAttempted] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   
-  console.log("Login component rendered, auth status:", authStatus, "user:", user?.email);
-  
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (authStatus === 'authenticated' && user) {
-      console.log("User is authenticated in Login component, redirecting to /notes");
-      navigate('/notes', { replace: true });
-    }
-  }, [authStatus, navigate, user]);
-
-  // Force a direct session check immediately on component mount
+  // Simplified initial session check - directly with Supabase, no store dependencies
   useEffect(() => {
     const checkInitialSession = async () => {
       try {
+        console.log("Direct session check on Login mount");
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Error in initial session check:", error);
+          console.error("Error in direct session check:", error);
+          setIsCheckingSession(false);
           return;
         }
         
         if (data.session) {
-          console.log("Initial session check found valid session, redirecting");
+          console.log("Direct session check found valid session, redirecting");
           navigate('/notes', { replace: true });
+        } else {
+          console.log("No session found in direct check, showing login form");
+          setIsCheckingSession(false);
         }
       } catch (err) {
-        console.error("Unexpected error in initial session check:", err);
+        console.error("Error in direct session check:", err);
+        setIsCheckingSession(false);
       }
     };
     
     checkInitialSession();
   }, [navigate]);
-
-  // Force a direct session check if we get stuck
-  useEffect(() => {
-    if (loginAttempted && isSubmitting) {
-      const timer = setTimeout(() => {
-        console.log("Login timeout reached, performing direct session check");
-        checkSessionAndRedirect();
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [loginAttempted, isSubmitting]);
-
-  const checkSessionAndRedirect = async () => {
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error("Error in direct session check:", error);
-        toast.error("Authentication error. Please try again.");
-        setIsSubmitting(false);
-        return;
-      }
-      
-      if (data.session) {
-        console.log("Valid session found in direct check, forcing navigation");
-        setIsSubmitting(false);
-        navigate('/notes', { replace: true });
-      } else {
-        console.log("No session found in direct check");
-        setIsSubmitting(false);
-      }
-    } catch (err) {
-      console.error("Unexpected error in session check:", err);
-      setIsSubmitting(false);
-    }
-  };
 
   const validateForm = () => {
     let valid = true;
@@ -119,7 +79,6 @@ const Login = () => {
     
     try {
       setIsSubmitting(true);
-      setLoginAttempted(true);
       
       // Always use direct Supabase login for most reliable behavior
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -130,10 +89,10 @@ const Login = () => {
       if (error) throw error;
       
       if (data.session) {
-        console.log("Login successful via direct Supabase call, session:", data.session.user.email);
+        console.log("Login successful via direct Supabase call");
         toast.success("Login successful!");
         
-        // Intentionally navigate without waiting for the store to update
+        // Force an immediate navigation
         navigate('/notes', { replace: true });
       } else {
         console.error("No session returned from login");
@@ -174,8 +133,8 @@ const Login = () => {
     }
   };
 
-  // If user is still loading and we haven't attempted login, show loading state
-  if (authStatus === 'loading' && !loginAttempted) {
+  // Show loading state while checking session
+  if (isCheckingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-center">

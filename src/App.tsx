@@ -28,127 +28,89 @@ const queryClient = new QueryClient({
   },
 });
 
-// Protected route component with improved direct session checking
+// Simple protected route - only checks session directly
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { authStatus, user } = useStore();
-  const [localLoading, setLocalLoading] = useState(true);
   const navigate = useNavigate();
+  const [checking, setChecking] = useState(true);
   
-  console.log("Protected route auth status:", authStatus, "user:", user?.email);
-  
-  // Direct session check on mount
+  // Check session on mount
   useEffect(() => {
     const checkSession = async () => {
       try {
+        console.log("Protected route checking session directly");
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Protected route session check error:", error);
-          setLocalLoading(false);
+          console.error("Session check error:", error);
           navigate('/login', { replace: true });
           return;
         }
         
         if (data.session) {
-          console.log("Protected route: Session found directly");
-          setLocalLoading(false);
+          console.log("Protected route: Session found");
+          setChecking(false);
         } else {
-          console.log("Protected route: No session found, redirecting to login");
-          setLocalLoading(false);
+          console.log("Protected route: No session found, redirecting");
           navigate('/login', { replace: true });
         }
       } catch (err) {
-        console.error("Error in protected route session check:", err);
-        setLocalLoading(false);
+        console.error("Error checking session:", err);
         navigate('/login', { replace: true });
       }
     };
     
-    // Check session immediately if auth status is loading
-    if (authStatus === 'authenticated') {
-      console.log("Protected route: Already authenticated via store");
-      setLocalLoading(false);
-    } else if (authStatus === 'unauthenticated') {
-      console.log("Protected route: Already unauthenticated via store");
-      navigate('/login', { replace: true });
-      setLocalLoading(false);
-    } else {
-      // If store state is loading, check session directly
-      console.log("Protected route: Auth status is loading, checking session directly");
-      checkSession();
-    }
-  }, [authStatus, navigate]);
+    checkSession();
+  }, [navigate]);
   
-  if (localLoading) {
+  if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-center">
-          <p className="text-gray-600">Loading protected content...</p>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );
   }
   
-  return authStatus === 'authenticated' || localLoading === false ? <>{children}</> : null;
+  return <>{children}</>;
 };
 
 const AppRoutes = () => {
-  const { authStatus, user } = useStore();
   const navigate = useNavigate();
-  
-  console.log("App routes auth status:", authStatus, "user:", user?.email);
   
   // Auth route component with direct session check
   const AuthRoute = ({ children }: { children: React.ReactNode }) => {
-    const [localLoading, setLocalLoading] = useState(true);
+    const [checking, setChecking] = useState(true);
     
     useEffect(() => {
       const checkSession = async () => {
-        console.log("Checking session directly in AppRoutes...");
         try {
+          console.log("Auth route checking session directly");
           const { data, error } = await supabase.auth.getSession();
           
           if (error) {
-            console.error("Auth route session check error:", error);
-            setLocalLoading(false);
+            console.error("Session check error:", error);
+            setChecking(false);
             return;
           }
           
           if (data.session) {
-            console.log("Auth route: Session found directly, redirecting to notes");
+            console.log("Auth route: Session found, redirecting");
             navigate('/notes', { replace: true });
           } else {
-            console.log("Auth route: No session found, staying on login");
-            setLocalLoading(false);
+            console.log("Auth route: No session found, showing login");
+            setChecking(false);
           }
         } catch (err) {
-          console.error("Error in auth route session check:", err);
-          setLocalLoading(false);
+          console.error("Error checking session:", err);
+          setChecking(false);
         }
       };
       
-      // Check auth state immediately
-      if (authStatus === 'authenticated') {
-        console.log("Auth route: Already authenticated via store, redirecting");
-        navigate('/notes', { replace: true });
-      } else if (authStatus === 'unauthenticated') {
-        console.log("Auth route: Already unauthenticated via store");
-        setLocalLoading(false);
-      } else {
-        // If store state is loading, check session directly after a short delay
-        console.log("Auth route: auth status is loading");
-        const timer = setTimeout(() => {
-          if (authStatus === 'loading') {
-            console.log("Auth routes: Auth status still loading after timeout, checking session directly");
-            checkSession();
-          }
-        }, 1000);
-        
-        return () => clearTimeout(timer);
-      }
-    }, [authStatus]);
+      checkSession();
+    }, []);
     
-    if (localLoading && authStatus === 'loading') {
+    if (checking) {
       return (
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-pulse text-center">

@@ -29,6 +29,29 @@ const Login = () => {
     }
   }, [authStatus, navigate, user]);
 
+  // Force a direct session check immediately on component mount
+  useEffect(() => {
+    const checkInitialSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error in initial session check:", error);
+          return;
+        }
+        
+        if (data.session) {
+          console.log("Initial session check found valid session, redirecting");
+          navigate('/notes', { replace: true });
+        }
+      } catch (err) {
+        console.error("Unexpected error in initial session check:", err);
+      }
+    };
+    
+    checkInitialSession();
+  }, [navigate]);
+
   // Force a direct session check if we get stuck
   useEffect(() => {
     if (loginAttempted && isSubmitting) {
@@ -98,21 +121,25 @@ const Login = () => {
       setIsSubmitting(true);
       setLoginAttempted(true);
       
-      // Direct Supabase login to bypass potential store issues
-      const { error } = await supabase.auth.signInWithPassword({
+      // Always use direct Supabase login for most reliable behavior
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
       
       if (error) throw error;
       
-      console.log("Login successful via direct Supabase call");
-      
-      // Short timeout to allow auth state to propagate
-      setTimeout(() => {
-        checkSessionAndRedirect();
-      }, 1000);
-      
+      if (data.session) {
+        console.log("Login successful via direct Supabase call, session:", data.session.user.email);
+        toast.success("Login successful!");
+        
+        // Intentionally navigate without waiting for the store to update
+        navigate('/notes', { replace: true });
+      } else {
+        console.error("No session returned from login");
+        toast.error("Login failed. Please try again.");
+        setIsSubmitting(false);
+      }
     } catch (error: any) {
       console.error("Login error:", error);
       

@@ -28,7 +28,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// Protected route component with improved loading state and session check
+// Protected route component with improved direct session checking
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { authStatus, user } = useStore();
   const [localLoading, setLocalLoading] = useState(true);
@@ -36,7 +36,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   
   console.log("Protected route auth status:", authStatus, "user:", user?.email);
   
-  // Direct session check on mount to avoid getting stuck in loading state
+  // Direct session check on mount
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -64,7 +64,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       }
     };
     
-    // Try store state first, but don't wait for it
+    // Check session immediately if auth status is loading
     if (authStatus === 'authenticated') {
       console.log("Protected route: Already authenticated via store");
       setLocalLoading(false);
@@ -73,15 +73,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       navigate('/login', { replace: true });
       setLocalLoading(false);
     } else {
-      // If store state is loading, check session directly after a short delay
-      const timer = setTimeout(() => {
-        if (authStatus === 'loading') {
-          console.log("Protected route: Store auth still loading, checking session directly");
-          checkSession();
-        }
-      }, 500);
-      
-      return () => clearTimeout(timer);
+      // If store state is loading, check session directly
+      console.log("Protected route: Auth status is loading, checking session directly");
+      checkSession();
     }
   }, [authStatus, navigate]);
   
@@ -95,7 +89,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
   
-  return authStatus === 'authenticated' ? <>{children}</> : null;
+  return authStatus === 'authenticated' || localLoading === false ? <>{children}</> : null;
 };
 
 const AppRoutes = () => {
@@ -110,6 +104,7 @@ const AppRoutes = () => {
     
     useEffect(() => {
       const checkSession = async () => {
+        console.log("Checking session directly in AppRoutes...");
         try {
           const { data, error } = await supabase.auth.getSession();
           
@@ -132,7 +127,7 @@ const AppRoutes = () => {
         }
       };
       
-      // Try store state first, but don't wait for it
+      // Check auth state immediately
       if (authStatus === 'authenticated') {
         console.log("Auth route: Already authenticated via store, redirecting");
         navigate('/notes', { replace: true });
@@ -141,12 +136,13 @@ const AppRoutes = () => {
         setLocalLoading(false);
       } else {
         // If store state is loading, check session directly after a short delay
+        console.log("Auth route: auth status is loading");
         const timer = setTimeout(() => {
           if (authStatus === 'loading') {
-            console.log("Auth route: Store auth still loading, checking session directly");
+            console.log("Auth routes: Auth status still loading after timeout, checking session directly");
             checkSession();
           }
-        }, 500);
+        }, 1000);
         
         return () => clearTimeout(timer);
       }

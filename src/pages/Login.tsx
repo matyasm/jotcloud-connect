@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,16 +12,15 @@ import { Separator } from "@/components/ui/separator";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   
-  // Simplified initial session check - directly with Supabase, no store dependencies
+  // Direct session check on mount
   useEffect(() => {
-    const checkInitialSession = async () => {
+    const checkSession = async () => {
       try {
         console.log("Direct session check on Login mount");
         const { data, error } = await supabase.auth.getSession();
@@ -46,7 +44,7 @@ const Login = () => {
       }
     };
     
-    checkInitialSession();
+    checkSession();
   }, [navigate]);
 
   const validateForm = () => {
@@ -80,7 +78,7 @@ const Login = () => {
     try {
       setIsSubmitting(true);
       
-      // Always use direct Supabase login for most reliable behavior
+      // Use direct Supabase login for reliability
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password

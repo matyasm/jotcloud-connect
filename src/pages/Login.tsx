@@ -18,33 +18,44 @@ const Login = () => {
   const [errors, setErrors] = useState({ email: "", password: "" });
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   
-  // Direct session check on mount
+  // Session check on component mount
   useEffect(() => {
     const checkSession = async () => {
       try {
-        console.log("Direct session check on Login mount");
+        console.log("Login component - Checking session on mount");
+        
+        // Clear any previous sessions first to avoid conflicts
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Error in direct session check:", error);
+          console.error("Error in Login session check:", error);
           setIsCheckingSession(false);
           return;
         }
         
-        if (data.session) {
-          console.log("Direct session check found valid session, redirecting");
-          navigate('/notes', { replace: true });
+        if (data && data.session) {
+          console.log("Login component - Valid session found, redirecting to /notes");
+          
+          // Use setTimeout to ensure UI updates before navigation
+          setTimeout(() => {
+            navigate('/notes', { replace: true });
+          }, 0);
         } else {
-          console.log("No session found in direct check, showing login form");
+          console.log("Login component - No session found, showing login form");
           setIsCheckingSession(false);
         }
       } catch (err) {
-        console.error("Error in direct session check:", err);
+        console.error("Exception in Login session check:", err);
         setIsCheckingSession(false);
       }
     };
     
     checkSession();
+    
+    // Cleanup any potential listeners when component unmounts
+    return () => {
+      console.log("Login component - Cleaning up");
+    };
   }, [navigate]);
 
   const validateForm = () => {
@@ -73,12 +84,15 @@ const Login = () => {
     
     if (!validateForm()) return;
     
-    console.log("Attempting login with email:", email);
+    console.log("Login component - Attempting login with email:", email);
     
     try {
       setIsSubmitting(true);
       
-      // Use direct Supabase login for reliability
+      // Clear any existing sessions first
+      await supabase.auth.signOut();
+      
+      console.log("Login component - Signing in with credentials");
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -87,22 +101,29 @@ const Login = () => {
       if (error) throw error;
       
       if (data.session) {
-        console.log("Login successful via direct Supabase call");
+        console.log("Login component - Login successful, session established");
         toast.success("Login successful!");
         
-        // Force an immediate navigation
-        navigate('/notes', { replace: true });
+        // Force session persistence
+        await supabase.auth.setSession(data.session);
+        
+        console.log("Login component - Session set, navigating to /notes");
+        
+        // Use setTimeout to ensure component state updates before navigation
+        setTimeout(() => {
+          navigate('/notes', { replace: true });
+        }, 100);
       } else {
-        console.error("No session returned from login");
+        console.error("Login component - No session returned from login");
         toast.error("Login failed. Please try again.");
         setIsSubmitting(false);
       }
     } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("Login component - Login error:", error);
       
-      if (error.message.includes("Invalid login credentials")) {
+      if (error.message && error.message.includes("Invalid login credentials")) {
         toast.error("Invalid email or password");
-      } else if (error.message.includes("Email not confirmed")) {
+      } else if (error.message && error.message.includes("Email not confirmed")) {
         toast.error("Please confirm your email before logging in");
       } else {
         toast.error(error.message || "Login failed. Please try again.");
@@ -114,6 +135,11 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     try {
       setIsSubmitting(true);
+      
+      // Clear any existing sessions first
+      await supabase.auth.signOut();
+      
+      console.log("Login component - Initiating Google login");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -125,7 +151,7 @@ const Login = () => {
       // No need to navigate - this will be handled by the auth redirect
       
     } catch (error: any) {
-      console.error("Google login error:", error);
+      console.error("Login component - Google login error:", error);
       toast.error(error.message || "Google login failed. Please try again.");
       setIsSubmitting(false);
     }

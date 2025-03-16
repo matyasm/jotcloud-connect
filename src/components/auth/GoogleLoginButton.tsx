@@ -1,6 +1,5 @@
 
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -17,7 +16,7 @@ const GoogleLoginButton = ({ isSubmitting, setIsSubmitting }: GoogleLoginButtonP
       // Clear any existing sessions first
       await supabase.auth.signOut();
       
-      console.log("Login component - Initiating Google login");
+      console.log("GoogleLoginButton - Initiating Google login");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -29,7 +28,7 @@ const GoogleLoginButton = ({ isSubmitting, setIsSubmitting }: GoogleLoginButtonP
       // No need to navigate - this will be handled by the auth redirect
       
     } catch (error: any) {
-      console.error("Login component - Google login error:", error);
+      console.error("GoogleLoginButton - Google login error:", error);
       toast.error(error.message || "Google login failed. Please try again.");
       setIsSubmitting(false);
     }

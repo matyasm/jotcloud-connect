@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface SessionCheckProps {
   children: React.ReactNode;
@@ -15,46 +16,52 @@ const SessionCheck = ({ children, onSessionCheckComplete }: SessionCheckProps) =
   useEffect(() => {
     const checkSession = async () => {
       try {
-        console.log("Login component - Checking session on mount");
+        console.log("SessionCheck - Checking session on mount");
         
-        // Clear any previous sessions first to avoid conflicts
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Error in Login session check:", error);
+          console.error("SessionCheck - Error checking session:", error);
           setIsCheckingSession(false);
           onSessionCheckComplete();
           return;
         }
         
-        if (data && data.session) {
-          console.log("Login component - Valid session found, redirecting to /notes");
-          
-          // Use setTimeout to ensure UI updates before navigation
-          setTimeout(() => {
-            navigate('/notes', { replace: true });
-          }, 0);
+        if (data?.session) {
+          console.log("SessionCheck - Valid session found, redirecting to /notes");
+          navigate('/notes', { replace: true });
         } else {
-          console.log("Login component - No session found, showing login form");
+          console.log("SessionCheck - No session found, showing login form");
           setIsCheckingSession(false);
           onSessionCheckComplete();
         }
       } catch (err) {
-        console.error("Exception in Login session check:", err);
+        console.error("SessionCheck - Exception in session check:", err);
         setIsCheckingSession(false);
         onSessionCheckComplete();
       }
     };
     
-    checkSession();
+    // Add a small delay to ensure UI and session state are in sync
+    const timer = setTimeout(() => checkSession(), 100);
     
-    // Cleanup any potential listeners when component unmounts
+    // Set up an auth state listener to catch changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("SessionCheck - Auth state change event:", event);
+      
+      if (event === 'SIGNED_IN' && session) {
+        console.log("SessionCheck - User signed in via auth state change");
+        navigate('/notes', { replace: true });
+      }
+    });
+    
     return () => {
-      console.log("Login component - Cleaning up");
+      console.log("SessionCheck - Cleaning up");
+      clearTimeout(timer);
+      authListener.subscription.unsubscribe();
     };
   }, [navigate, onSessionCheckComplete]);
 
-  // Show loading state while checking session
   if (isCheckingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center">

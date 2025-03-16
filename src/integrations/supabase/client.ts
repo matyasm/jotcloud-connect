@@ -13,7 +13,8 @@ export const supabase = createClient<Database>(
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true
+      detectSessionInUrl: true,
+      storageKey: 'supabase.auth.token' // Consistent storage key
     }
   }
 );
@@ -23,4 +24,14 @@ export const debugSession = async () => {
   const { data, error } = await supabase.auth.getSession();
   console.log("Debug Session:", data, error);
   return { data, error };
+};
+
+// Helper to force sync session state
+export const syncSession = async () => {
+  const { data } = await supabase.auth.getSession();
+  if (data.session) {
+    await supabase.auth.setSession(data.session);
+    return true;
+  }
+  return false;
 };

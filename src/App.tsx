@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-route
 import { StoreProvider, useStore } from "./lib/store";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { useEffect, useState } from "react";
-import { supabase } from "./integrations/supabase/client";
+import { supabase, syncSession } from "./integrations/supabase/client";
 
 // Pages
 import Landing from "./pages/Landing";
@@ -37,29 +37,43 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        console.log("Protected route checking session directly");
+        console.log("ProtectedRoute - Checking session directly");
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Session check error:", error);
+          console.error("ProtectedRoute - Session check error:", error);
           navigate('/login', { replace: true });
           return;
         }
         
         if (data.session) {
-          console.log("Protected route: Session found");
+          // Make sure session is properly synced
+          await syncSession();
+          console.log("ProtectedRoute - Session found and synced");
           setChecking(false);
         } else {
-          console.log("Protected route: No session found, redirecting");
+          console.log("ProtectedRoute - No session found, redirecting");
           navigate('/login', { replace: true });
         }
       } catch (err) {
-        console.error("Error checking session:", err);
+        console.error("ProtectedRoute - Error checking session:", err);
         navigate('/login', { replace: true });
       }
     };
     
     checkSession();
+    
+    // Listen for auth changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("ProtectedRoute - Auth state change:", event);
+      if (event === 'SIGNED_OUT') {
+        navigate('/login', { replace: true });
+      }
+    });
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, [navigate]);
   
   if (checking) {
@@ -76,61 +90,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
-  const navigate = useNavigate();
-  
-  // Auth route component with direct session check
-  const AuthRoute = ({ children }: { children: React.ReactNode }) => {
-    const [checking, setChecking] = useState(true);
-    
-    useEffect(() => {
-      const checkSession = async () => {
-        try {
-          console.log("Auth route checking session directly");
-          const { data, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            console.error("Session check error:", error);
-            setChecking(false);
-            return;
-          }
-          
-          if (data.session) {
-            console.log("Auth route: Session found, redirecting");
-            navigate('/notes', { replace: true });
-          } else {
-            console.log("Auth route: No session found, showing login");
-            setChecking(false);
-          }
-        } catch (err) {
-          console.error("Error checking session:", err);
-          setChecking(false);
-        }
-      };
-      
-      checkSession();
-    }, []);
-    
-    if (checking) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-pulse text-center">
-            <p className="text-gray-600">Checking authentication...</p>
-          </div>
-        </div>
-      );
-    }
-    
-    return <>{children}</>;
-  };
-  
   return (
     <Routes>
       {/* Landing page is accessible without authentication checks */}
       <Route path="/" element={<Landing />} />
       
-      {/* Auth routes */}
-      <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
-      <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
+      {/* Auth routes - simplified, no longer using wrapper component */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       
       {/* Protected routes */}
       <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
@@ -144,20 +111,33 @@ const AppRoutes = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <StoreProvider>
-      <ThemeProvider defaultTheme="system">
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
-      </ThemeProvider>
-    </StoreProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // Initialize auth listener at the app level
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("App - Auth state change event:", event);
+    });
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <StoreProvider>
+        <ThemeProvider defaultTheme="system">
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </TooltipProvider>
+        </ThemeProvider>
+      </StoreProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

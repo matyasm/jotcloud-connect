@@ -46,15 +46,13 @@ const EmailLoginForm = ({ isSubmitting, setIsSubmitting }: EmailLoginFormProps) 
     
     if (!validateForm()) return;
     
-    console.log("Login component - Attempting login with email:", email);
-    
     try {
       setIsSubmitting(true);
+      console.log("EmailLoginForm - Signing in with credentials");
       
       // Clear any existing sessions first
       await supabase.auth.signOut();
       
-      console.log("Login component - Signing in with credentials");
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -63,25 +61,23 @@ const EmailLoginForm = ({ isSubmitting, setIsSubmitting }: EmailLoginFormProps) 
       if (error) throw error;
       
       if (data.session) {
-        console.log("Login component - Login successful, session established");
+        console.log("EmailLoginForm - Login successful, session established");
         toast.success("Login successful!");
         
-        // Force session persistence
+        // Ensure the session is persisted
         await supabase.auth.setSession(data.session);
-        
-        console.log("Login component - Session set, navigating to /notes");
         
         // Use setTimeout to ensure component state updates before navigation
         setTimeout(() => {
           navigate('/notes', { replace: true });
-        }, 100);
+        }, 200);
       } else {
-        console.error("Login component - No session returned from login");
+        console.error("EmailLoginForm - No session returned from login");
         toast.error("Login failed. Please try again.");
         setIsSubmitting(false);
       }
     } catch (error: any) {
-      console.error("Login component - Login error:", error);
+      console.error("EmailLoginForm - Login error:", error);
       
       if (error.message && error.message.includes("Invalid login credentials")) {
         toast.error("Invalid email or password");

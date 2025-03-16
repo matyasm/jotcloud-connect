@@ -6,9 +6,8 @@ import NoteCard from "@/components/NoteCard";
 import NoteEditor from "@/components/NoteEditor";
 import { Note } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Share2, Heart, Tag, Search, X, User } from "lucide-react";
+import { Search, X, Tag, Globe } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -21,8 +20,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 
-const SharedNotes = () => {
-  const { sharedNotes, user, likeNote } = useStore();
+const PublicNotes = () => {
+  const { publicNotes, user, likeNote } = useStore();
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
@@ -31,7 +30,7 @@ const SharedNotes = () => {
 
   // Extract all unique tags from notes
   useEffect(() => {
-    const tags = sharedNotes.reduce((acc: string[], note) => {
+    const tags = publicNotes.reduce((acc: string[], note) => {
       note.tags.forEach(tag => {
         if (!acc.includes(tag)) {
           acc.push(tag);
@@ -41,11 +40,11 @@ const SharedNotes = () => {
     }, []);
     
     setAllTags(tags.sort());
-  }, [sharedNotes]);
+  }, [publicNotes]);
 
   // Filter notes based on search query and tags
   useEffect(() => {
-    let filtered = [...sharedNotes];
+    let filtered = [...publicNotes];
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -63,7 +62,7 @@ const SharedNotes = () => {
     }
     
     setFilteredNotes(filtered);
-  }, [sharedNotes, searchQuery, selectedTags]);
+  }, [publicNotes, searchQuery, selectedTags]);
 
   const handleNoteClick = (note: Note) => {
     setSelectedNote(note);
@@ -121,12 +120,12 @@ const SharedNotes = () => {
       
       <main className="px-4 sm:px-6 py-8">
         <div className="max-w-7xl mx-auto">
-          {/* Shared notes header section */}
+          {/* Header section */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">Shared With Me</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">Public Notes</h1>
               <p className="text-muted-foreground">
-                {filteredNotes.length} {filteredNotes.length === 1 ? "note" : "notes"} shared directly with you
+                {filteredNotes.length} {filteredNotes.length === 1 ? "note" : "notes"} available
               </p>
             </div>
             
@@ -178,7 +177,7 @@ const SharedNotes = () => {
               </div>
               <Input
                 type="text"
-                placeholder="Search shared notes..."
+                placeholder="Search public notes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 pr-10"
@@ -229,7 +228,7 @@ const SharedNotes = () => {
                 <NoteEditor
                   note={selectedNote}
                   onClose={handleCloseEditor}
-                  readOnly={selectedNote.owner !== user?.id}
+                  readOnly={true}
                 />
               </div>
             </div>
@@ -249,42 +248,11 @@ const SharedNotes = () => {
                       {/* Creator info and like button */}
                       <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                         <div className="flex items-center text-sm text-muted-foreground">
-                          <User size={14} className="mr-1 text-blue-500" />
+                          <Globe size={14} className="mr-1 text-green-500" />
                           {note.creatorName && (
                             <span>by <span className="font-medium">{note.creatorName}</span></span>
                           )}
                         </div>
-                        
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button 
-                                onClick={(e) => handleLikeNote(note.id, e)}
-                                className="flex items-center space-x-1 text-sm text-muted-foreground"
-                              >
-                                <Heart 
-                                  size={16} 
-                                  className={`
-                                    ${note.likes?.includes(user?.id || '') 
-                                      ? 'fill-red-500 text-red-500' 
-                                      : ''}
-                                    transition-colors
-                                  `}
-                                />
-                                <span>{note.likes?.length || 0}</span>
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {note.likes?.length ? (
-                                <p className="text-xs">
-                                  Liked by: {note.likedByNames?.join(', ') || 'No one yet'}
-                                </p>
-                              ) : (
-                                <p className="text-xs">Be the first to like this note</p>
-                              )}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
                       </div>
                     </div>
                   </motion.div>
@@ -294,15 +262,28 @@ const SharedNotes = () => {
           ) : (
             <div className="text-center py-20">
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4">
-                <Share2 size={24} />
+                <Globe size={24} />
               </div>
-              <h3 className="text-xl font-medium text-foreground mb-2">No shared notes yet</h3>
+              <h3 className="text-xl font-medium text-foreground mb-2">No public notes found</h3>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                When others share notes directly with you, they'll appear here.
+                There are no public notes available matching your criteria.
               </p>
-              <p className="text-sm text-muted-foreground">
-                Looking for public notes? Check the <a href="/public" className="text-primary hover:underline">Public Notes</a> section.
-              </p>
+              {(searchQuery || selectedTags.length > 0) && (
+                <div className="flex gap-2 justify-center">
+                  {searchQuery && (
+                    <Button onClick={clearSearch} variant="outline" className="flex items-center mx-auto">
+                      <X size={16} className="mr-2" />
+                      Clear Search
+                    </Button>
+                  )}
+                  {selectedTags.length > 0 && (
+                    <Button onClick={clearTagFilters} variant="outline" className="flex items-center mx-auto">
+                      <X size={16} className="mr-2" />
+                      Clear Tag Filters
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -311,4 +292,4 @@ const SharedNotes = () => {
   );
 };
 
-export default SharedNotes;
+export default PublicNotes;

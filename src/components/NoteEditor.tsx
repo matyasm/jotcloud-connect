@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 interface NoteEditorProps {
   note?: Note;
   onClose: () => void;
-  readOnly?: boolean; // Added readOnly prop
+  readOnly?: boolean;
 }
 
 const NoteEditor = ({ note, onClose, readOnly = false }: NoteEditorProps) => {
@@ -99,17 +99,17 @@ const NoteEditor = ({ note, onClose, readOnly = false }: NoteEditorProps) => {
   };
 
   return (
-    <div className="bg-white/90 backdrop-blur-xl rounded-xl shadow-xl border border-gray-100 p-6 animate-fade-in w-full max-w-3xl mx-auto">
+    <div className="bg-card/90 backdrop-blur-xl rounded-xl shadow-xl border border-border p-6 animate-fade-in w-full max-w-3xl mx-auto">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-medium text-gray-900">
+          <h2 className="text-2xl font-medium text-foreground">
             {isNewNote ? 'Create Note' : readOnly ? 'View Note' : 'Edit Note'}
           </h2>
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-muted-foreground hover:text-foreground"
           >
             <X size={20} />
           </Button>
@@ -122,7 +122,7 @@ const NoteEditor = ({ note, onClose, readOnly = false }: NoteEditorProps) => {
               placeholder="Title"
               value={title}
               onChange={(e) => readOnly ? null : setTitle(e.target.value)}
-              className="text-lg font-medium focus:ring-1 focus:ring-blue-400 border-gray-200"
+              className="text-lg font-medium focus:ring-1 focus:ring-primary border-input"
               readOnly={readOnly}
             />
           </div>
@@ -132,7 +132,7 @@ const NoteEditor = ({ note, onClose, readOnly = false }: NoteEditorProps) => {
               placeholder="Start writing..."
               value={content}
               onChange={(e) => readOnly ? null : setContent(e.target.value)}
-              className="min-h-[200px] focus:ring-1 focus:ring-blue-400 border-gray-200 resize-none"
+              className="min-h-[200px] focus:ring-1 focus:ring-primary border-input resize-none"
               readOnly={readOnly}
             />
           </div>
@@ -141,7 +141,7 @@ const NoteEditor = ({ note, onClose, readOnly = false }: NoteEditorProps) => {
             {!readOnly && (
               <div className="flex items-center space-x-2">
                 <div className="relative flex-grow">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground">
                     <Tag size={16} />
                   </div>
                   <Input
@@ -149,7 +149,7 @@ const NoteEditor = ({ note, onClose, readOnly = false }: NoteEditorProps) => {
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="pl-10 focus:ring-1 focus:ring-blue-400 border-gray-200"
+                    className="pl-10 focus:ring-1 focus:ring-primary border-input"
                   />
                 </div>
                 <Button onClick={handleAddTag} variant="outline">Add</Button>
@@ -161,14 +161,14 @@ const NoteEditor = ({ note, onClose, readOnly = false }: NoteEditorProps) => {
                 {tags.map((tag) => (
                   <span 
                     key={tag}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary"
                   >
                     {tag}
                     {!readOnly && (
                       <button
                         type="button"
                         onClick={() => handleRemoveTag(tag)}
-                        className="ml-1.5 text-blue-600 hover:text-blue-800 focus:outline-none"
+                        className="ml-1.5 text-primary/70 hover:text-primary focus:outline-none"
                       >
                         <X size={14} />
                       </button>

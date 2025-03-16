@@ -12,7 +12,9 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Notes from "./pages/Notes";
+import Tasks from "./pages/Tasks";
 import SharedNotes from "./pages/SharedNotes";
+import PublicNotes from "./pages/PublicNotes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,7 +69,9 @@ const AppRoutes = () => {
       
       {/* Protected routes */}
       <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
+      <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
       <Route path="/shared" element={<ProtectedRoute><SharedNotes /></ProtectedRoute>} />
+      <Route path="/public" element={<ProtectedRoute><PublicNotes /></ProtectedRoute>} />
       
       <Route path="*" element={<NotFound />} />
     </Routes>
@@ -77,7 +81,7 @@ const AppRoutes = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <StoreProvider>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultTheme="system">
         <TooltipProvider>
           <Toaster />
           <Sonner />

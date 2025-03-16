@@ -83,6 +83,86 @@ export type Database = {
         }
         Relationships: []
       }
+      task_time_entries: {
+        Row: {
+          created_at: string
+          end_time: string | null
+          id: string
+          start_time: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          start_time: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          start_time?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          active_time_accumulated_seconds: number | null
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          owner: string
+          paused_at: string | null
+          position: number
+          started_at: string | null
+          status: string
+          title: string
+          total_time_seconds: number | null
+          updated_at: string
+        }
+        Insert: {
+          active_time_accumulated_seconds?: number | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          owner: string
+          paused_at?: string | null
+          position?: number
+          started_at?: string | null
+          status?: string
+          title: string
+          total_time_seconds?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active_time_accumulated_seconds?: number | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          owner?: string
+          paused_at?: string | null
+          position?: number
+          started_at?: string | null
+          status?: string
+          title?: string
+          total_time_seconds?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

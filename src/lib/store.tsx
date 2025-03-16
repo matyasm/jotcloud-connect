@@ -1,15 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Note, AuthStatus } from './types';
+import { User, Note, AuthStatus, Task, TaskTimeEntry, TimeMetrics, WeekMetrics, MonthMetrics } from './types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, parseISO, differenceInSeconds, isWithinInterval } from 'date-fns';
 
 const initialNotes: Note[] = [];
+const initialTasks: Task[] = [];
 
 interface StoreContextType {
   authStatus: AuthStatus;
   user: User | null;
   notes: Note[];
   sharedNotes: Note[];
+  publicNotes: Note[];
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -22,6 +25,17 @@ interface StoreContextType {
   exportNotes: () => void;
   importNotes: (notesJson: string) => Promise<void>;
   likeNote: (id: string) => Promise<void>;
+  tasks: Task[];
+  createTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'owner' | 'position' | 'totalTimeSeconds' | 'activeTimeAccumulatedSeconds'>) => Promise<void>;
+  updateTask: (id: string, task: Partial<Task>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  startTask: (id: string) => Promise<void>;
+  pauseTask: (id: string) => Promise<void>;
+  completeTask: (id: string) => Promise<void>;
+  reorderTasks: (taskIds: string[]) => Promise<void>;
+  getTimeMetricsByDay: () => TimeMetrics[];
+  getTimeMetricsByWeek: () => WeekMetrics[];
+  getTimeMetricsByMonth: () => MonthMetrics[];
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -31,6 +45,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [user, setUser] = useState<User | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [sharedNotes, setSharedNotes] = useState<Note[]>([]);
+  const [publicNotes, setPublicNotes] = useState<Note[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -64,6 +80,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setUser(userData);
           setAuthStatus('authenticated');
           fetchNotes(supabaseUser.id);
+          fetchTasks(supabaseUser.id);
         } else {
           setAuthStatus('unauthenticated');
         }
@@ -96,11 +113,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setUser(userData);
         setAuthStatus('authenticated');
         fetchNotes(session.user.id);
+        fetchTasks(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setAuthStatus('unauthenticated');
         setNotes([]);
         setSharedNotes([]);
+        setPublicNotes([]);
+        setTasks([]);
       }
     });
     
@@ -142,21 +162,35 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setNotes(formattedNotes);
       }
 
-      const { data: sharedData, error: sharedError } = await supabase
+      const { data: sharedSpecificData, error: sharedSpecificError } = await supabase
         .from('notes')
         .select('*, profiles:profiles(name)')
-        .or(`shared_with.cs.{'*'}, shared_with.cs.{'${userId}'}`)
+        .contains('shared_with', [userId])
+        .not('shared_with', 'cs', '{*}')
         .neq('owner', userId)
         .order('updated_at', { ascending: false });
 
-      if (sharedError) {
-        console.error('Error fetching shared notes:', sharedError);
+      if (sharedSpecificError) {
+        console.error('Error fetching shared notes:', sharedSpecificError);
         toast.error('Failed to load shared notes');
         return;
       }
 
-      if (sharedData) {
-        const formattedSharedNotes: Note[] = sharedData.map(note => ({
+      const { data: publicData, error: publicError } = await supabase
+        .from('notes')
+        .select('*, profiles:profiles(name)')
+        .contains('shared_with', ['*'])
+        .neq('owner', userId)
+        .order('updated_at', { ascending: false });
+
+      if (publicError) {
+        console.error('Error fetching public notes:', publicError);
+        toast.error('Failed to load public notes');
+        return;
+      }
+
+      if (sharedSpecificData) {
+        const formattedSharedNotes: Note[] = sharedSpecificData.map(note => ({
           id: note.id,
           title: note.title,
           content: note.content,
@@ -173,9 +207,67 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         
         setSharedNotes(formattedSharedNotes);
       }
+
+      if (publicData) {
+        const formattedPublicNotes: Note[] = publicData.map(note => ({
+          id: note.id,
+          title: note.title,
+          content: note.content,
+          createdAt: note.created_at,
+          updatedAt: note.updated_at,
+          owner: note.owner,
+          creatorName: note.profiles?.name,
+          shared: note.shared,
+          sharedWith: note.shared_with || [],
+          tags: note.tags || [],
+          likes: note.likes || [],
+          likedByNames: note.liked_by_names || []
+        }));
+        
+        setPublicNotes(formattedPublicNotes);
+      }
     } catch (error) {
       console.error('Error in fetchNotes:', error);
       toast.error('Failed to load notes');
+    }
+  };
+
+  const fetchTasks = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('owner', userId)
+        .order('position', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching tasks:', error);
+        toast.error('Failed to load tasks');
+        return;
+      }
+
+      if (data) {
+        const formattedTasks: Task[] = data.map(task => ({
+          id: task.id,
+          title: task.title,
+          description: task.description || undefined,
+          createdAt: task.created_at,
+          updatedAt: task.updated_at,
+          startedAt: task.started_at || undefined,
+          pausedAt: task.paused_at || undefined,
+          completedAt: task.completed_at || undefined,
+          owner: task.owner,
+          status: task.status as 'pending' | 'active' | 'paused' | 'completed',
+          position: task.position,
+          totalTimeSeconds: task.total_time_seconds || 0,
+          activeTimeAccumulatedSeconds: task.active_time_accumulated_seconds || 0
+        }));
+        
+        setTasks(formattedTasks);
+      }
+    } catch (error) {
+      console.error('Error in fetchTasks:', error);
+      toast.error('Failed to load tasks');
     }
   };
 
@@ -473,7 +565,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       let updatedLikedByNames: string[];
       
       if (userLiked) {
-        updatedLikes = currentLikes.filter(id => id !== user.id);
+        updatedLikes = currentLikes.filter(likeId => likeId !== user.id);
         updatedLikedByNames = currentLikedByNames.filter(name => name !== user.name);
       } else {
         updatedLikes = [...currentLikes, user.id];
@@ -507,6 +599,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       setNotes(updateNoteState);
       setSharedNotes(updateNoteState);
+      setPublicNotes(updateNoteState);
       
       toast.success(userLiked ? 'Removed like' : 'Added like');
     } catch (error) {
@@ -609,11 +702,443 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   };
 
+  const createTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'owner' | 'position' | 'totalTimeSeconds' | 'activeTimeAccumulatedSeconds'>) => {
+    if (!user) {
+      toast.error('You must be logged in to create tasks');
+      return;
+    }
+
+    try {
+      const { data: positionData } = await supabase
+        .from('tasks')
+        .select('position')
+        .eq('owner', user.id)
+        .order('position', { ascending: false })
+        .limit(1);
+      
+      const nextPosition = positionData && positionData.length > 0 ? positionData[0].position + 1 : 0;
+      
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          title: task.title,
+          description: task.description,
+          status: task.status || 'pending',
+          owner: user.id,
+          position: nextPosition,
+          total_time_seconds: 0,
+          active_time_accumulated_seconds: 0
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating task:', error);
+        toast.error('Failed to create task');
+        throw error;
+      }
+
+      if (data) {
+        const newTask: Task = {
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+          startedAt: data.started_at,
+          pausedAt: data.paused_at,
+          completedAt: data.completed_at,
+          owner: data.owner,
+          status: data.status,
+          position: data.position,
+          totalTimeSeconds: data.total_time_seconds || 0,
+          activeTimeAccumulatedSeconds: data.active_time_accumulated_seconds || 0
+        };
+        
+        setTasks(prev => [...prev, newTask].sort((a, b) => a.position - b.position));
+        toast.success('Task created');
+      }
+    } catch (error) {
+      console.error('Error in createTask:', error);
+      throw error;
+    }
+  };
+
+  const updateTask = async (id: string, taskUpdate: Partial<Task>) => {
+    if (!user) {
+      toast.error('You must be logged in to update tasks');
+      return;
+    }
+
+    try {
+      const updateData: any = {};
+      if (taskUpdate.title !== undefined) updateData.title = taskUpdate.title;
+      if (taskUpdate.description !== undefined) updateData.description = taskUpdate.description;
+      if (taskUpdate.status !== undefined) updateData.status = taskUpdate.status;
+      if (taskUpdate.startedAt !== undefined) updateData.started_at = taskUpdate.startedAt;
+      if (taskUpdate.pausedAt !== undefined) updateData.paused_at = taskUpdate.pausedAt;
+      if (taskUpdate.completedAt !== undefined) updateData.completed_at = taskUpdate.completedAt;
+      if (taskUpdate.position !== undefined) updateData.position = taskUpdate.position;
+      if (taskUpdate.totalTimeSeconds !== undefined) updateData.total_time_seconds = taskUpdate.totalTimeSeconds;
+      if (taskUpdate.activeTimeAccumulatedSeconds !== undefined) 
+        updateData.active_time_accumulated_seconds = taskUpdate.activeTimeAccumulatedSeconds;
+
+      const { error } = await supabase
+        .from('tasks')
+        .update(updateData)
+        .eq('id', id)
+        .eq('owner', user.id);
+
+      if (error) {
+        console.error('Error updating task:', error);
+        toast.error('Failed to update task');
+        throw error;
+      }
+
+      setTasks(prev => 
+        prev.map(task => 
+          task.id === id 
+            ? { ...task, ...taskUpdate, updatedAt: new Date().toISOString() } 
+            : task
+        )
+      );
+    } catch (error) {
+      console.error('Error in updateTask:', error);
+      throw error;
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    if (!user) {
+      toast.error('You must be logged in to delete tasks');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', id)
+        .eq('owner', user.id);
+
+      if (error) {
+        console.error('Error deleting task:', error);
+        toast.error('Failed to delete task');
+        throw error;
+      }
+
+      setTasks(prev => prev.filter(task => task.id !== id));
+      toast.success('Task deleted');
+    } catch (error) {
+      console.error('Error in deleteTask:', error);
+      throw error;
+    }
+  };
+
+  const createTimeEntry = async (taskId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('task_time_entries')
+        .insert({
+          task_id: taskId,
+          start_time: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error('Error creating time entry:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in createTimeEntry:', error);
+      throw error;
+    }
+  };
+
+  const endTimeEntry = async (taskId: string) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('task_time_entries')
+        .select('*')
+        .eq('task_id', taskId)
+        .is('end_time', null)
+        .order('start_time', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error fetching time entry:', error);
+        throw error;
+      }
+
+      if (data && data.length > 0) {
+        const entry = data[0];
+        const endTime = new Date().toISOString();
+        
+        const { error: updateError } = await supabase
+          .from('task_time_entries')
+          .update({ end_time: endTime })
+          .eq('id', entry.id);
+
+        if (updateError) {
+          console.error('Error updating time entry:', updateError);
+          throw updateError;
+        }
+
+        const startTime = new Date(entry.start_time);
+        const durationSeconds = Math.floor((new Date(endTime).getTime() - startTime.getTime()) / 1000);
+        
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+          const newTotalSeconds = (task.totalTimeSeconds || 0) + durationSeconds;
+          await updateTask(taskId, { totalTimeSeconds: newTotalSeconds });
+        }
+      }
+    } catch (error) {
+      console.error('Error in endTimeEntry:', error);
+      throw error;
+    }
+  };
+
+  const startTask = async (id: string) => {
+    if (!user) {
+      toast.error('You must be logged in to start tasks');
+      return;
+    }
+
+    try {
+      const activeTasks = tasks.filter(task => task.status === 'active');
+      for (const activeTask of activeTasks) {
+        if (activeTask.id !== id) {
+          await pauseTask(activeTask.id);
+        }
+      }
+
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+
+      const now = new Date().toISOString();
+      
+      await createTimeEntry(id);
+      
+      await updateTask(id, {
+        status: 'active',
+        startedAt: task.startedAt || now,
+        pausedAt: undefined
+      });
+
+      toast.success('Task started');
+    } catch (error) {
+      console.error('Error starting task:', error);
+      toast.error('Failed to start task');
+    }
+  };
+
+  const pauseTask = async (id: string) => {
+    if (!user) {
+      toast.error('You must be logged in to pause tasks');
+      return;
+    }
+
+    try {
+      await endTimeEntry(id);
+      
+      await updateTask(id, {
+        status: 'paused',
+        pausedAt: new Date().toISOString()
+      });
+
+      toast.success('Task paused');
+    } catch (error) {
+      console.error('Error pausing task:', error);
+      toast.error('Failed to pause task');
+    }
+  };
+
+  const completeTask = async (id: string) => {
+    if (!user) {
+      toast.error('You must be logged in to complete tasks');
+      return;
+    }
+
+    try {
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+
+      if (task.status === 'active') {
+        await endTimeEntry(id);
+      }
+      
+      await updateTask(id, {
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      });
+
+      toast.success('Task completed');
+    } catch (error) {
+      console.error('Error completing task:', error);
+      toast.error('Failed to complete task');
+    }
+  };
+
+  const reorderTasks = async (taskIds: string[]) => {
+    if (!user || taskIds.length === 0) return;
+
+    try {
+      const updates = taskIds.map((id, index) => ({
+        id,
+        position: index
+      }));
+
+      setTasks(prev => {
+        const taskMap = new Map(prev.map(task => [task.id, task]));
+        return taskIds.map((id, index) => {
+          const task = taskMap.get(id);
+          if (!task) throw new Error(`Task with ID ${id} not found`);
+          return { ...task, position: index };
+        });
+      });
+
+      for (const update of updates) {
+        await supabase
+          .from('tasks')
+          .update({ position: update.position })
+          .eq('id', update.id)
+          .eq('owner', user.id);
+      }
+    } catch (error) {
+      console.error('Error reordering tasks:', error);
+      toast.error('Failed to reorder tasks');
+      if (user) fetchTasks(user.id);
+    }
+  };
+
+  const getTimeMetricsByDay = (): TimeMetrics[] => {
+    if (tasks.length === 0) return [];
+
+    const tasksByDay = new Map<string, Task[]>();
+    
+    tasks.forEach(task => {
+      if (task.totalTimeSeconds > 0) {
+        const day = task.completedAt 
+          ? format(new Date(task.completedAt), 'yyyy-MM-dd')
+          : format(new Date(), 'yyyy-MM-dd');
+        
+        if (!tasksByDay.has(day)) {
+          tasksByDay.set(day, []);
+        }
+        tasksByDay.get(day)?.push(task);
+      }
+    });
+
+    const metrics: TimeMetrics[] = [];
+    
+    tasksByDay.forEach((dayTasks, day) => {
+      const totalSeconds = dayTasks.reduce((sum, task) => sum + task.totalTimeSeconds, 0);
+      metrics.push({
+        day,
+        totalSeconds,
+        tasks: dayTasks
+      });
+    });
+
+    return metrics.sort((a, b) => new Date(b.day).getTime() - new Date(a.day).getTime());
+  };
+
+  const getTimeMetricsByWeek = (): WeekMetrics[] => {
+    const dayMetrics = getTimeMetricsByDay();
+    if (dayMetrics.length === 0) return [];
+
+    const weekMap = new Map<string, {
+      weekStart: string;
+      weekEnd: string;
+      days: TimeMetrics[];
+      totalSeconds: number;
+    }>();
+
+    dayMetrics.forEach(dayMetric => {
+      const date = parseISO(dayMetric.day);
+      const weekStartDate = startOfWeek(date, { weekStartsOn: 1 });
+      const weekEndDate = endOfWeek(date, { weekStartsOn: 1 });
+      
+      const weekStart = format(weekStartDate, 'yyyy-MM-dd');
+      const weekEnd = format(weekEndDate, 'yyyy-MM-dd');
+      const weekKey = `${weekStart}_${weekEnd}`;
+
+      if (!weekMap.has(weekKey)) {
+        weekMap.set(weekKey, {
+          weekStart,
+          weekEnd,
+          days: [],
+          totalSeconds: 0
+        });
+      }
+
+      const week = weekMap.get(weekKey)!;
+      week.days.push(dayMetric);
+      week.totalSeconds += dayMetric.totalSeconds;
+    });
+
+    const weeks: WeekMetrics[] = [];
+    weekMap.forEach(week => {
+      weeks.push({
+        weekStart: week.weekStart,
+        weekEnd: week.weekEnd,
+        totalSeconds: week.totalSeconds,
+        days: week.days.sort((a, b) => new Date(b.day).getTime() - new Date(a.day).getTime())
+      });
+    });
+
+    return weeks.sort((a, b) => new Date(b.weekEnd).getTime() - new Date(a.weekEnd).getTime());
+  };
+
+  const getTimeMetricsByMonth = (): MonthMetrics[] => {
+    const weekMetrics = getTimeMetricsByWeek();
+    if (weekMetrics.length === 0) return [];
+
+    const monthMap = new Map<string, {
+      month: string;
+      weeks: WeekMetrics[];
+      totalSeconds: number;
+    }>();
+
+    weekMetrics.forEach(weekMetric => {
+      const monthDate = parseISO(weekMetric.weekEnd);
+      const month = format(monthDate, 'yyyy-MM');
+
+      if (!monthMap.has(month)) {
+        monthMap.set(month, {
+          month,
+          weeks: [],
+          totalSeconds: 0
+        });
+      }
+
+      const monthData = monthMap.get(month)!;
+      monthData.weeks.push(weekMetric);
+      monthData.totalSeconds += weekMetric.totalSeconds;
+    });
+
+    const months: MonthMetrics[] = [];
+    monthMap.forEach(month => {
+      months.push({
+        month: month.month,
+        totalSeconds: month.totalSeconds,
+        weeks: month.weeks.sort((a, b) => new Date(b.weekEnd).getTime() - new Date(a.weekEnd).getTime())
+      });
+    });
+
+    return months.sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime());
+  };
+
   const value = {
     authStatus,
     user,
     notes,
     sharedNotes,
+    publicNotes,
     login,
     register,
     logout,
@@ -625,7 +1150,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     searchNotes,
     exportNotes,
     importNotes,
-    likeNote
+    likeNote,
+    tasks,
+    createTask,
+    updateTask,
+    deleteTask,
+    startTask,
+    pauseTask,
+    completeTask,
+    reorderTasks,
+    getTimeMetricsByDay,
+    getTimeMetricsByWeek,
+    getTimeMetricsByMonth
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

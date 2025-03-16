@@ -718,12 +718,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       const nextPosition = positionData && positionData.length > 0 ? positionData[0].position + 1 : 0;
       
+      // Fix: Explicitly cast the status to the correct type
+      const taskStatus: 'pending' | 'active' | 'paused' | 'completed' = task.status || 'pending';
+      
       const { data, error } = await supabase
         .from('tasks')
         .insert({
           title: task.title,
           description: task.description,
-          status: task.status || 'pending',
+          status: taskStatus, // Use the properly typed status
           owner: user.id,
           position: nextPosition,
           total_time_seconds: 0,
@@ -749,7 +752,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           pausedAt: data.paused_at,
           completedAt: data.completed_at,
           owner: data.owner,
-          status: data.status,
+          status: data.status as 'pending' | 'active' | 'paused' | 'completed',
           position: data.position,
           totalTimeSeconds: data.total_time_seconds || 0,
           activeTimeAccumulatedSeconds: data.active_time_accumulated_seconds || 0
@@ -988,189 +991,3 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       const updates = taskIds.map((id, index) => ({
-        id,
-        position: index
-      }));
-
-      setTasks(prev => {
-        const taskMap = new Map(prev.map(task => [task.id, task]));
-        return taskIds.map((id, index) => {
-          const task = taskMap.get(id);
-          if (!task) throw new Error(`Task with ID ${id} not found`);
-          return { ...task, position: index };
-        });
-      });
-
-      for (const update of updates) {
-        await supabase
-          .from('tasks')
-          .update({ position: update.position })
-          .eq('id', update.id)
-          .eq('owner', user.id);
-      }
-    } catch (error) {
-      console.error('Error reordering tasks:', error);
-      toast.error('Failed to reorder tasks');
-      if (user) fetchTasks(user.id);
-    }
-  };
-
-  const getTimeMetricsByDay = (): TimeMetrics[] => {
-    if (tasks.length === 0) return [];
-
-    const tasksByDay = new Map<string, Task[]>();
-    
-    tasks.forEach(task => {
-      if (task.totalTimeSeconds > 0) {
-        const day = task.completedAt 
-          ? format(new Date(task.completedAt), 'yyyy-MM-dd')
-          : format(new Date(), 'yyyy-MM-dd');
-        
-        if (!tasksByDay.has(day)) {
-          tasksByDay.set(day, []);
-        }
-        tasksByDay.get(day)?.push(task);
-      }
-    });
-
-    const metrics: TimeMetrics[] = [];
-    
-    tasksByDay.forEach((dayTasks, day) => {
-      const totalSeconds = dayTasks.reduce((sum, task) => sum + task.totalTimeSeconds, 0);
-      metrics.push({
-        day,
-        totalSeconds,
-        tasks: dayTasks
-      });
-    });
-
-    return metrics.sort((a, b) => new Date(b.day).getTime() - new Date(a.day).getTime());
-  };
-
-  const getTimeMetricsByWeek = (): WeekMetrics[] => {
-    const dayMetrics = getTimeMetricsByDay();
-    if (dayMetrics.length === 0) return [];
-
-    const weekMap = new Map<string, {
-      weekStart: string;
-      weekEnd: string;
-      days: TimeMetrics[];
-      totalSeconds: number;
-    }>();
-
-    dayMetrics.forEach(dayMetric => {
-      const date = parseISO(dayMetric.day);
-      const weekStartDate = startOfWeek(date, { weekStartsOn: 1 });
-      const weekEndDate = endOfWeek(date, { weekStartsOn: 1 });
-      
-      const weekStart = format(weekStartDate, 'yyyy-MM-dd');
-      const weekEnd = format(weekEndDate, 'yyyy-MM-dd');
-      const weekKey = `${weekStart}_${weekEnd}`;
-
-      if (!weekMap.has(weekKey)) {
-        weekMap.set(weekKey, {
-          weekStart,
-          weekEnd,
-          days: [],
-          totalSeconds: 0
-        });
-      }
-
-      const week = weekMap.get(weekKey)!;
-      week.days.push(dayMetric);
-      week.totalSeconds += dayMetric.totalSeconds;
-    });
-
-    const weeks: WeekMetrics[] = [];
-    weekMap.forEach(week => {
-      weeks.push({
-        weekStart: week.weekStart,
-        weekEnd: week.weekEnd,
-        totalSeconds: week.totalSeconds,
-        days: week.days.sort((a, b) => new Date(b.day).getTime() - new Date(a.day).getTime())
-      });
-    });
-
-    return weeks.sort((a, b) => new Date(b.weekEnd).getTime() - new Date(a.weekEnd).getTime());
-  };
-
-  const getTimeMetricsByMonth = (): MonthMetrics[] => {
-    const weekMetrics = getTimeMetricsByWeek();
-    if (weekMetrics.length === 0) return [];
-
-    const monthMap = new Map<string, {
-      month: string;
-      weeks: WeekMetrics[];
-      totalSeconds: number;
-    }>();
-
-    weekMetrics.forEach(weekMetric => {
-      const monthDate = parseISO(weekMetric.weekEnd);
-      const month = format(monthDate, 'yyyy-MM');
-
-      if (!monthMap.has(month)) {
-        monthMap.set(month, {
-          month,
-          weeks: [],
-          totalSeconds: 0
-        });
-      }
-
-      const monthData = monthMap.get(month)!;
-      monthData.weeks.push(weekMetric);
-      monthData.totalSeconds += weekMetric.totalSeconds;
-    });
-
-    const months: MonthMetrics[] = [];
-    monthMap.forEach(month => {
-      months.push({
-        month: month.month,
-        totalSeconds: month.totalSeconds,
-        weeks: month.weeks.sort((a, b) => new Date(b.weekEnd).getTime() - new Date(a.weekEnd).getTime())
-      });
-    });
-
-    return months.sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime());
-  };
-
-  const value = {
-    authStatus,
-    user,
-    notes,
-    sharedNotes,
-    publicNotes,
-    login,
-    register,
-    logout,
-    createNote,
-    updateNote,
-    deleteNote,
-    shareNote,
-    shareNoteWithAll,
-    searchNotes,
-    exportNotes,
-    importNotes,
-    likeNote,
-    tasks,
-    createTask,
-    updateTask,
-    deleteTask,
-    startTask,
-    pauseTask,
-    completeTask,
-    reorderTasks,
-    getTimeMetricsByDay,
-    getTimeMetricsByWeek,
-    getTimeMetricsByMonth
-  };
-
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
-};
-
-export const useStore = () => {
-  const context = useContext(StoreContext);
-  if (context === undefined) {
-    throw new Error('useStore must be used within a StoreProvider');
-  }
-  return context;
-};

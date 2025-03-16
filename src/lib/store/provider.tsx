@@ -19,16 +19,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        console.log('Initializing auth in StoreProvider');
         const { user: userData, error } = await authOperations.checkSession();
         
         if (error) {
-          console.error('Error checking session:', error);
+          console.error('Auth initialization error:', error);
           setAuthStatus('unauthenticated');
           setAuthInitialized(true);
           return;
         }
         
         if (userData) {
+          console.log('User authenticated in StoreProvider:', userData.email);
           setUser(userData);
           setAuthStatus('authenticated');
           
@@ -42,12 +44,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const userTasks = await taskOperations.fetchTasks(userData.id);
           setTasks(userTasks);
         } else {
+          console.log('No user found in StoreProvider');
           setAuthStatus('unauthenticated');
         }
         
         setAuthInitialized(true);
       } catch (err) {
-        console.error('Error in auth initialization:', err);
+        console.error('Error initializing auth in StoreProvider:', err);
         setAuthStatus('unauthenticated');
         setAuthInitialized(true);
       }
@@ -55,8 +58,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     initializeAuth();
     
+    // Set up auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change event:', event);
+      console.log('Auth state change in StoreProvider:', event);
       
       if (event === 'SIGNED_IN' && session) {
         console.log('User signed in:', session.user.email);
@@ -78,7 +82,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setTasks(userTasks);
         }
       } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
+        console.log('User signed out in StoreProvider');
         setUser(null);
         setAuthStatus('unauthenticated');
         setNotes([]);
@@ -89,6 +93,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     
     return () => {
+      console.log('Cleaning up auth listener in StoreProvider');
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -137,9 +142,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Auth state change will handle the reset
     } catch (error) {
       console.error('Logout error:', error);
+      throw error;
     }
   };
 
+  // Implement note operations
   const createNote = async (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt' | 'owner'>) => {
     try {
       const newNote = await noteOperations.createNote(user, note);
@@ -228,6 +235,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             : note
         );
 
+      // Update all note collections that might contain this note
       setNotes(updateNoteState);
       setSharedNotes(updateNoteState);
       setPublicNotes(updateNoteState);
@@ -253,6 +261,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return noteOperations.searchNotes(notes, query);
   };
 
+  // Implement task operations
   const createTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'owner' | 'position' | 'totalTimeSeconds' | 'activeTimeAccumulatedSeconds'>) => {
     try {
       const newTask = await taskOperations.createTask(user, task);

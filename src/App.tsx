@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,64 +33,8 @@ const queryClient = new QueryClient({
   },
 });
 
-// Simple protected route - only checks session directly
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const navigate = useNavigate();
-  const [checking, setChecking] = useState(true);
-  
-  // Check session on mount
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        console.log("ProtectedRoute - Checking session directly");
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("ProtectedRoute - Session check error:", error);
-          navigate('/login', { replace: true });
-          return;
-        }
-        
-        if (data.session) {
-          // Make sure session is properly synced
-          await syncSession();
-          console.log("ProtectedRoute - Session found and synced");
-          setChecking(false);
-        } else {
-          console.log("ProtectedRoute - No session found, redirecting");
-          navigate('/login', { replace: true });
-        }
-      } catch (err) {
-        console.error("ProtectedRoute - Error checking session:", err);
-        navigate('/login', { replace: true });
-      }
-    };
-    
-    checkSession();
-    
-    // Listen for auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("ProtectedRoute - Auth state change:", event);
-      if (event === 'SIGNED_OUT') {
-        navigate('/login', { replace: true });
-      }
-    });
-    
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [navigate]);
-  
-  if (checking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-center">
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-  
+// Simple wrapper that replaces the protected route
+const SimpleWrapper = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
@@ -105,11 +48,11 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       
-      {/* Protected routes */}
-      <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
-      <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-      <Route path="/shared" element={<ProtectedRoute><SharedNotes /></ProtectedRoute>} />
-      <Route path="/public" element={<ProtectedRoute><PublicNotes /></ProtectedRoute>} />
+      {/* No longer protected routes */}
+      <Route path="/notes" element={<SimpleWrapper><Notes /></SimpleWrapper>} />
+      <Route path="/tasks" element={<SimpleWrapper><Tasks /></SimpleWrapper>} />
+      <Route path="/shared" element={<SimpleWrapper><SharedNotes /></SimpleWrapper>} />
+      <Route path="/public" element={<SimpleWrapper><PublicNotes /></SimpleWrapper>} />
       
       {/* Fallback route */}
       <Route path="*" element={<NotFound />} />

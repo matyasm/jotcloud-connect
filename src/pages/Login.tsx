@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
@@ -13,78 +12,56 @@ import { Separator } from "@/components/ui/separator";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, authStatus } = useStore();
+  const { login, authStatus, user } = useStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
-  const [manualNavigationAttempted, setManualNavigationAttempted] = useState(false);
+  const [loginAttempted, setLoginAttempted] = useState(false);
+  
+  console.log("Login component rendered, auth status:", authStatus, "user:", user?.email);
   
   // Redirect if already authenticated
   useEffect(() => {
-    console.log("Auth status in Login component:", authStatus);
-    if (authStatus === 'authenticated') {
-      console.log("User is authenticated, redirecting to /notes");
-      navigate('/notes');
+    if (authStatus === 'authenticated' && user) {
+      console.log("User is authenticated in Login component, redirecting to /notes");
+      navigate('/notes', { replace: true });
     }
-  }, [authStatus, navigate]);
+  }, [authStatus, navigate, user]);
 
-  // Check Supabase connectivity on component mount
+  // Force a direct session check if we get stuck
   useEffect(() => {
-    const checkSupabaseConnection = async () => {
-      try {
-        const { data, error } = await supabase.from('profiles').select('count');
-        if (error) {
-          console.error("Supabase connection error:", error);
-          toast.error("Database connection error. Please try again later.");
-        } else {
-          console.log("Supabase connection successful");
-        }
-      } catch (err) {
-        console.error("Unexpected error checking database:", err);
-        toast.error("Unable to connect to the database");
-      }
-    };
-    
-    checkSupabaseConnection();
-  }, []);
-
-  // Reset submission state when auth status changes
-  useEffect(() => {
-    if (authStatus === 'authenticated') {
-      setIsSubmitting(false);
-      console.log("Auth status changed to authenticated, redirecting to /notes");
-      navigate('/notes');
-    } else if (authStatus === 'unauthenticated') {
-      setIsSubmitting(false);
-    }
-  }, [authStatus, navigate]);
-  
-  // Add a timeout to check for direct session if we get stuck
-  useEffect(() => {
-    if (isSubmitting && !manualNavigationAttempted) {
+    if (loginAttempted && isSubmitting) {
       const timer = setTimeout(() => {
-        console.log("Login timeout reached, checking session directly");
-        checkSessionDirectly();
-        setManualNavigationAttempted(true);
-      }, 3000);
+        console.log("Login timeout reached, performing direct session check");
+        checkSessionAndRedirect();
+      }, 2000);
       
       return () => clearTimeout(timer);
     }
-  }, [isSubmitting, manualNavigationAttempted]);
-  
-  const checkSessionDirectly = async () => {
+  }, [loginAttempted, isSubmitting]);
+
+  const checkSessionAndRedirect = async () => {
     try {
-      const { data } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error("Error in direct session check:", error);
+        toast.error("Authentication error. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+      
       if (data.session) {
-        console.log("Session exists, manually navigating to /notes");
-        navigate('/notes');
+        console.log("Valid session found in direct check, forcing navigation");
+        setIsSubmitting(false);
+        navigate('/notes', { replace: true });
       } else {
         console.log("No session found in direct check");
         setIsSubmitting(false);
       }
-    } catch (error) {
-      console.error("Error in direct session check:", error);
+    } catch (err) {
+      console.error("Unexpected error in session check:", err);
       setIsSubmitting(false);
     }
   };
@@ -119,33 +96,23 @@ const Login = () => {
     
     try {
       setIsSubmitting(true);
-      setManualNavigationAttempted(false);
-      console.log("Login process started, current auth status:", authStatus);
+      setLoginAttempted(true);
       
-      await login(email, password);
+      // Direct Supabase login to bypass potential store issues
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      // Force navigation after a delay if not already navigated
+      if (error) throw error;
+      
+      console.log("Login successful via direct Supabase call");
+      
+      // Short timeout to allow auth state to propagate
       setTimeout(() => {
-        if (document.location.pathname === '/login') {
-          console.log("Still on login page after successful login, forcing navigation");
-          navigate('/notes');
-        }
+        checkSessionAndRedirect();
       }, 1000);
       
-      // Extra check to force navigation if needed
-      setTimeout(() => {
-        console.log("Post-login timeout check, current path:", document.location.pathname);
-        if (document.location.pathname === '/login') {
-          const checkCurrentSession = async () => {
-            const { data } = await supabase.auth.getSession();
-            if (data.session) {
-              console.log("Session exists after login, forcing navigation");
-              navigate('/notes');
-            }
-          };
-          checkCurrentSession();
-        }
-      }, 2000);
     } catch (error: any) {
       console.error("Login error:", error);
       
@@ -180,8 +147,8 @@ const Login = () => {
     }
   };
 
-  // If user is not yet authenticated or still loading, show the login form
-  if (authStatus === 'loading' && !isSubmitting) {
+  // If user is still loading and we haven't attempted login, show loading state
+  if (authStatus === 'loading' && !loginAttempted) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-center">

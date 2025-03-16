@@ -11,9 +11,10 @@ import { toast } from 'sonner';
 interface NoteEditorProps {
   note?: Note;
   onClose: () => void;
+  readOnly?: boolean; // Added readOnly prop
 }
 
-const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
+const NoteEditor = ({ note, onClose, readOnly = false }: NoteEditorProps) => {
   const { createNote, updateNote } = useStore();
   const [title, setTitle] = useState(note?.title || '');
   const [content, setContent] = useState(note?.content || '');
@@ -25,14 +26,16 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
 
   useEffect(() => {
     // Focus the title input when the editor opens
-    const titleInput = document.getElementById('note-title');
-    if (titleInput) {
-      titleInput.focus();
+    if (!readOnly) {
+      const titleInput = document.getElementById('note-title');
+      if (titleInput) {
+        titleInput.focus();
+      }
     }
-  }, []);
+  }, [readOnly]);
 
   const handleAddTag = () => {
-    if (!tagInput.trim()) return;
+    if (!tagInput.trim() || readOnly) return;
     
     const newTag = tagInput.trim().toLowerCase();
     if (!tags.includes(newTag)) {
@@ -42,6 +45,7 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
+    if (readOnly) return;
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
@@ -53,6 +57,8 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
   };
 
   const handleSave = async () => {
+    if (readOnly) return;
+    
     if (!title.trim()) {
       toast.error('Please add a title');
       return;
@@ -97,7 +103,7 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-medium text-gray-900">
-            {isNewNote ? 'Create Note' : 'Edit Note'}
+            {isNewNote ? 'Create Note' : readOnly ? 'View Note' : 'Edit Note'}
           </h2>
           <Button 
             variant="ghost" 
@@ -115,8 +121,9 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
               id="note-title"
               placeholder="Title"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => readOnly ? null : setTitle(e.target.value)}
               className="text-lg font-medium focus:ring-1 focus:ring-blue-400 border-gray-200"
+              readOnly={readOnly}
             />
           </div>
 
@@ -124,27 +131,30 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
             <Textarea
               placeholder="Start writing..."
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={(e) => readOnly ? null : setContent(e.target.value)}
               className="min-h-[200px] focus:ring-1 focus:ring-blue-400 border-gray-200 resize-none"
+              readOnly={readOnly}
             />
           </div>
 
           <div>
-            <div className="flex items-center space-x-2">
-              <div className="relative flex-grow">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <Tag size={16} />
+            {!readOnly && (
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-grow">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Tag size={16} />
+                  </div>
+                  <Input
+                    placeholder="Add tags..."
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="pl-10 focus:ring-1 focus:ring-blue-400 border-gray-200"
+                  />
                 </div>
-                <Input
-                  placeholder="Add tags..."
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="pl-10 focus:ring-1 focus:ring-blue-400 border-gray-200"
-                />
+                <Button onClick={handleAddTag} variant="outline">Add</Button>
               </div>
-              <Button onClick={handleAddTag} variant="outline">Add</Button>
-            </div>
+            )}
 
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
@@ -154,13 +164,15 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
                     className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
                   >
                     {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="ml-1.5 text-blue-600 hover:text-blue-800 focus:outline-none"
-                    >
-                      <X size={14} />
-                    </button>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="ml-1.5 text-blue-600 hover:text-blue-800 focus:outline-none"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
@@ -170,16 +182,18 @@ const NoteEditor = ({ note, onClose }: NoteEditorProps) => {
 
         <div className="flex justify-end pt-4 space-x-3">
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {readOnly ? 'Close' : 'Cancel'}
           </Button>
-          <Button 
-            onClick={handleSave} 
-            disabled={isSaving || !title.trim()} 
-            className="flex items-center gap-2"
-          >
-            <Save size={16} />
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
+          {!readOnly && (
+            <Button 
+              onClick={handleSave} 
+              disabled={isSaving || !title.trim()} 
+              className="flex items-center gap-2"
+            >
+              <Save size={16} />
+              {isSaving ? 'Saving...' : 'Save'}
+            </Button>
+          )}
         </div>
       </div>
     </div>

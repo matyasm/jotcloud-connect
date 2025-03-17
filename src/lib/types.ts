@@ -26,6 +26,8 @@ export type AuthStatus = 'authenticated' | 'loading' | 'unauthenticated';
 
 export type ViewMode = 'grid' | 'list' | 'condensed';
 
+export type TaskColor = 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
+
 export interface Task {
   id: string;
   title: string;
@@ -40,6 +42,7 @@ export interface Task {
   position: number;
   totalTimeSeconds: number;
   activeTimeAccumulatedSeconds: number;
+  color?: TaskColor;
 }
 
 export interface TaskTimeEntry {

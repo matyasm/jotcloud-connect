@@ -59,7 +59,7 @@ const NoteListItem = ({ note, onClick }: NoteListItemProps) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="py-2 px-4 border-b border-border hover:bg-accent/50 transition-colors duration-200 cursor-pointer"
+      className="py-2 px-4 border border-border rounded-md mb-2 hover:bg-accent/50 transition-colors duration-200 cursor-pointer"
       onClick={() => onClick(note)}
     >
       <div className="flex justify-between items-center">

@@ -1,8 +1,7 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useStore } from "@/lib/store";
 import Navbar from "@/components/Navbar";
-import { Task, TimeMetrics, WeekMetrics, MonthMetrics } from "@/lib/types";
+import { Task, TaskColor, TimeMetrics, WeekMetrics, MonthMetrics } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,10 +29,24 @@ import {
 import { formatDistanceToNow, format, parseISO, differenceInSeconds } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+const TASK_COLORS: Record<TaskColor, string> = {
+  gray: "bg-gray-400 dark:bg-gray-500",
+  red: "bg-red-400 dark:bg-red-500",
+  orange: "bg-orange-400 dark:bg-orange-500",
+  yellow: "bg-yellow-400 dark:bg-yellow-500",
+  green: "bg-green-400 dark:bg-green-500",
+  blue: "bg-blue-400 dark:bg-blue-500",
+  purple: "bg-purple-400 dark:bg-purple-500",
+  pink: "bg-pink-400 dark:bg-pink-500"
+};
 
 const TaskListItem = ({ task, onAction }: { task: Task, onAction: (action: string, task: Task) => void }) => {
   const [timeElapsed, setTimeElapsed] = useState<string>("");
+  const [isHovered, setIsHovered] = useState(false);
   
   useEffect(() => {
     // Set up interval to update time elapsed for active tasks
@@ -70,6 +83,8 @@ const TaskListItem = ({ task, onAction }: { task: Task, onAction: (action: strin
       default: return 'bg-gray-300 dark:bg-gray-600';
     }
   };
+
+  const taskColorClass = task.color ? TASK_COLORS[task.color] : 'bg-gray-300 dark:bg-gray-600';
   
   return (
     <motion.div 
@@ -78,17 +93,22 @@ const TaskListItem = ({ task, onAction }: { task: Task, onAction: (action: strin
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       layout
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ height: isHovered ? 'auto' : '60px', overflow: 'hidden' }}
     >
       <div className="flex items-center space-x-3 flex-1">
         <div className="flex flex-col items-center">
-          <span className={`w-3 h-3 rounded-full ${getStatusColor()}`} />
-          <div className="hidden group-hover:block h-full w-px bg-border mt-1" />
+          <span className={`w-3 h-3 rounded-full ${taskColorClass}`} />
+          <div className="h-full w-px bg-border mt-1" />
         </div>
         
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-foreground line-clamp-1">{task.title}</h3>
           {task.description && (
-            <p className="text-sm text-muted-foreground line-clamp-1 mt-1">{task.description}</p>
+            <p className={`text-sm text-muted-foreground ${isHovered ? '' : 'line-clamp-1'} mt-1`}>
+              {task.description}
+            </p>
           )}
           <div className="flex items-center mt-1 space-x-4 text-xs">
             <span className="text-muted-foreground">
@@ -149,27 +169,23 @@ const TaskListItem = ({ task, onAction }: { task: Task, onAction: (action: strin
           </Button>
         )}
         
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button 
-              size="icon" 
-              variant="ghost" 
-              className="h-8 w-8 text-muted-foreground"
-            >
-              <MoreVertical size={16} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onAction('edit', task)}>
-              <Edit size={16} className="mr-2" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAction('delete', task)}>
-              <Trash2 size={16} className="mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button 
+          size="icon" 
+          variant="ghost" 
+          onClick={() => onAction('edit', task)}
+          className="h-8 w-8 text-muted-foreground hover:text-primary"
+        >
+          <Edit size={16} />
+        </Button>
+        
+        <Button 
+          size="icon" 
+          variant="ghost" 
+          onClick={() => onAction('delete', task)}
+          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 size={16} />
+        </Button>
 
         {/* Drag handle */}
         <div className="touch-none text-muted-foreground cursor-grab active:cursor-grabbing h-8 w-8 flex items-center justify-center">
@@ -177,6 +193,35 @@ const TaskListItem = ({ task, onAction }: { task: Task, onAction: (action: strin
         </div>
       </div>
     </motion.div>
+  );
+};
+
+const ColorPicker = ({ selectedColor, onSelectColor }: { selectedColor?: TaskColor, onSelectColor: (color: TaskColor) => void }) => {
+  const colors: TaskColor[] = ['gray', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'];
+  
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium">Task Color</Label>
+      <RadioGroup 
+        defaultValue={selectedColor || 'gray'} 
+        onValueChange={(value) => onSelectColor(value as TaskColor)}
+        className="flex flex-wrap gap-2"
+      >
+        {colors.map((color) => (
+          <div key={color} className="flex items-center space-x-2">
+            <RadioGroupItem 
+              value={color} 
+              id={`color-${color}`} 
+              className="peer sr-only" 
+            />
+            <Label
+              htmlFor={`color-${color}`}
+              className={`w-8 h-8 rounded-full cursor-pointer border-2 border-transparent hover:opacity-90 hover:border-primary peer-data-[state=checked]:border-primary ${TASK_COLORS[color]}`}
+            ></Label>
+          </div>
+        ))}
+      </RadioGroup>
+    </div>
   );
 };
 
@@ -188,6 +233,7 @@ const TasksList = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskColor, setNewTaskColor] = useState<TaskColor>("gray");
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [showCompletedTasks, setShowCompletedTasks] = useState(true);
   
@@ -206,11 +252,13 @@ const TasksList = () => {
       await createTask({
         title: newTaskTitle.trim(),
         description: newTaskDescription.trim() || undefined,
-        status: 'pending'
+        status: 'pending',
+        color: newTaskColor
       });
       
       setNewTaskTitle("");
       setNewTaskDescription("");
+      setNewTaskColor("gray");
       setIsCreateDialogOpen(false);
     } catch (error) {
       console.error('Error creating task:', error);
@@ -229,7 +277,8 @@ const TasksList = () => {
     try {
       await updateTask(currentTask.id, {
         title: newTaskTitle.trim(),
-        description: newTaskDescription.trim() || undefined
+        description: newTaskDescription.trim() || undefined,
+        color: newTaskColor
       });
       
       setIsEditDialogOpen(false);
@@ -255,6 +304,7 @@ const TasksList = () => {
           setCurrentTask(task);
           setNewTaskTitle(task.title);
           setNewTaskDescription(task.description || '');
+          setNewTaskColor(task.color || 'gray');
           setIsEditDialogOpen(true);
           break;
         case 'delete':
@@ -357,6 +407,10 @@ const TasksList = () => {
                 rows={3}
               />
             </div>
+            <ColorPicker 
+              selectedColor={newTaskColor}
+              onSelectColor={setNewTaskColor}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
@@ -391,6 +445,10 @@ const TasksList = () => {
                 rows={3}
               />
             </div>
+            <ColorPicker 
+              selectedColor={newTaskColor}
+              onSelectColor={setNewTaskColor}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
@@ -403,7 +461,7 @@ const TasksList = () => {
 };
 
 const TaskMetrics = () => {
-  const { getTimeMetricsByDay, getTimeMetricsByWeek, getTimeMetricsByMonth } = useStore();
+  const { getTimeMetricsByDay, getTimeMetricsByWeek, getTimeMetricsByMonth, tasks } = useStore();
   const [activeTab, setActiveTab] = useState("daily");
   
   const dayMetrics = getTimeMetricsByDay();
@@ -412,6 +470,10 @@ const TaskMetrics = () => {
   
   const formatTime = (seconds: number) => {
     return formatSeconds(seconds);
+  };
+
+  const getTaskColorClass = (task: Task) => {
+    return task.color ? TASK_COLORS[task.color] : 'bg-gray-300 dark:bg-gray-600';
   };
   
   return (
@@ -447,7 +509,10 @@ const TaskMetrics = () => {
                     <ul className="space-y-2">
                       {day.tasks.map(task => (
                         <li key={task.id} className="flex justify-between items-center text-sm py-1 border-b border-border last:border-0">
-                          <span>{task.title}</span>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${getTaskColorClass(task)}`}></div>
+                            <span>{task.title}</span>
+                          </div>
                           <span className="text-muted-foreground">{formatTime(task.totalTimeSeconds)}</span>
                         </li>
                       ))}
@@ -480,9 +545,24 @@ const TaskMetrics = () => {
                     <AccordionContent>
                       <div className="space-y-2 pl-4">
                         {week.days.map(day => (
-                          <div key={day.day} className="flex justify-between items-center text-sm py-2 border-b border-border last:border-0">
-                            <span>{format(parseISO(day.day), 'EEEE, MMMM d')}</span>
-                            <span className="text-muted-foreground">{formatTime(day.totalSeconds)}</span>
+                          <div key={day.day} className="border-b border-border last:border-0">
+                            <div className="flex justify-between items-center text-sm py-2">
+                              <span>{format(parseISO(day.day), 'EEEE, MMMM d')}</span>
+                              <span className="text-muted-foreground">{formatTime(day.totalSeconds)}</span>
+                            </div>
+                            {day.tasks.length > 0 && (
+                              <div className="pl-4 pb-2">
+                                {day.tasks.map(task => (
+                                  <div key={task.id} className="flex justify-between items-center text-xs py-1">
+                                    <div className="flex items-center gap-2">
+                                      <div className={`w-2 h-2 rounded-full ${getTaskColorClass(task)}`}></div>
+                                      <span>{task.title}</span>
+                                    </div>
+                                    <span className="text-muted-foreground">{formatTime(task.totalTimeSeconds)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -552,6 +632,17 @@ const formatSeconds = (seconds: number): string => {
 
 const Tasks = () => {
   const [activeView, setActiveView] = useState("list");
+  const { tasks } = useStore();
+  
+  // Setting up a global interval to keep task timers running while on any tab
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      // This empty interval keeps React's state updates going
+      // even when the component isn't in focus
+    }, 1000);
+    
+    return () => clearInterval(intervalId);
+  }, []);
   
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -561,7 +652,7 @@ const Tasks = () => {
         <div className="max-w-7xl mx-auto">
           <Tabs defaultValue="list" onValueChange={setActiveView} className="w-full">
             <TabsList className="w-full max-w-md mx-auto mb-6">
-              <TabsTrigger value="list" className="flex-1">Task List</TabsTrigger>
+              <TabsTrigger value="list" className="flex-1">Task List ({tasks.length})</TabsTrigger>
               <TabsTrigger value="metrics" className="flex-1">Time Metrics</TabsTrigger>
             </TabsList>
             

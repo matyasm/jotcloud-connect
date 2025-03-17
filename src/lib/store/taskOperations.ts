@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Task, User, TimeMetrics, WeekMetrics, MonthMetrics } from '../types';
+import { Task, User, TimeMetrics, WeekMetrics, MonthMetrics, TaskColor } from '../types';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 
@@ -41,7 +41,8 @@ export const fetchTasks = async (userId: string): Promise<Task[]> => {
         status: task.status as 'pending' | 'active' | 'paused' | 'completed',
         position: task.position,
         totalTimeSeconds: task.total_time_seconds || 0,
-        activeTimeAccumulatedSeconds: task.active_time_accumulated_seconds || 0
+        activeTimeAccumulatedSeconds: task.active_time_accumulated_seconds || 0,
+        color: task.color as TaskColor || undefined
       }));
       
       return formattedTasks;
@@ -82,7 +83,8 @@ export const createTask = async (user: User | null, task: Omit<Task, 'id' | 'cre
         owner: user.id,
         position: nextPosition,
         total_time_seconds: 0,
-        active_time_accumulated_seconds: 0
+        active_time_accumulated_seconds: 0,
+        color: task.color || 'gray'
       })
       .select()
       .single();
@@ -107,7 +109,8 @@ export const createTask = async (user: User | null, task: Omit<Task, 'id' | 'cre
         status: data.status as 'pending' | 'active' | 'paused' | 'completed',
         position: data.position,
         totalTimeSeconds: data.total_time_seconds || 0,
-        activeTimeAccumulatedSeconds: data.active_time_accumulated_seconds || 0
+        activeTimeAccumulatedSeconds: data.active_time_accumulated_seconds || 0,
+        color: data.color as TaskColor || undefined
       };
       
       toast.success('Task created');
@@ -139,6 +142,7 @@ export const updateTask = async (user: User | null, id: string, taskUpdate: Part
     if (taskUpdate.totalTimeSeconds !== undefined) updateData.total_time_seconds = taskUpdate.totalTimeSeconds;
     if (taskUpdate.activeTimeAccumulatedSeconds !== undefined) 
       updateData.active_time_accumulated_seconds = taskUpdate.activeTimeAccumulatedSeconds;
+    if (taskUpdate.color !== undefined) updateData.color = taskUpdate.color;
 
     const { error } = await supabase
       .from('tasks')

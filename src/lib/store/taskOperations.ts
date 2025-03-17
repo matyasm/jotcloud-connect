@@ -42,7 +42,7 @@ export const fetchTasks = async (userId: string): Promise<Task[]> => {
         position: task.position,
         totalTimeSeconds: task.total_time_seconds || 0,
         activeTimeAccumulatedSeconds: task.active_time_accumulated_seconds || 0,
-        color: task.color as TaskColor || undefined
+        color: (task.color as TaskColor) || undefined
       }));
       
       return formattedTasks;
@@ -110,7 +110,7 @@ export const createTask = async (user: User | null, task: Omit<Task, 'id' | 'cre
         position: data.position,
         totalTimeSeconds: data.total_time_seconds || 0,
         activeTimeAccumulatedSeconds: data.active_time_accumulated_seconds || 0,
-        color: data.color as TaskColor || undefined
+        color: (data.color as TaskColor) || undefined
       };
       
       toast.success('Task created');
